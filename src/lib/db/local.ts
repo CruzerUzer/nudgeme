@@ -81,7 +81,9 @@ export class LocalStore implements DataStore {
   private seed(userId: string) {
     const now = new Date().toISOString();
     const activities: Activity[] = SEED_ACTIVITIES.map((s) => ({
-      ...s,
+      title: s.title,
+      frequency: s.frequency,
+      tags: s.tags ?? [],
       id: uid(),
       userId,
       active: true,

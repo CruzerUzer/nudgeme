@@ -43,6 +43,11 @@ export default defineConfig({
       "@": fileURLToPath(new URL("./src", import.meta.url)),
     },
   },
+  server: {
+    host: true, // lyssna på alla nätverksgränssnitt (LAN + Tailscale)
+    // Tillåt åtkomst via Tailscale MagicDNS-namn (*.ts.net), inte bara IP.
+    allowedHosts: [".ts.net"],
+  },
   test: {
     environment: "node",
     include: ["src/**/*.test.ts"],

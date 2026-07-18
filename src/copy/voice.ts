@@ -23,7 +23,7 @@ export const DONE_CHEERS = [
   "Skogen jublar diskret.",
   "En stjärna till i din krona.",
   "Underbart. Du får en osynlig high-five.",
-  "Bra jobbat, äventyrare.",
+  "Bra jobbat.",
   "Det där var värt en liten dans.",
 ] as const;
 
@@ -48,20 +48,6 @@ export const EMPTY_HISTORY = [
 export const PAUSED_MESSAGE =
   "Allt är stilla. Nudges vilar tills du väcker dem igen. 🍃";
 
-/** Magic eight ball / orakel-svar på begäran. Lekfulla, tvetydiga, snälla. */
-export const ORACLE_ANSWERS = [
-  "Orakelspegeln säger: absolut ja.",
-  "Stjärnorna nickar instämmande.",
-  "Dimman skingras – gör det.",
-  "Kanske. Fråga igen efter en kopp te.",
-  "Skogen tvekar. Prova imorgon?",
-  "Ett bestämt 'varför inte?'",
-  "Ödet ler mot dig idag.",
-  "Alverna röstade – det blev ja.",
-  "Inte nu. Men snart, känns det som.",
-  "Följ hjärtat, det brukar veta.",
-] as const;
-
 /** Knapptexter — små men viktiga för tonen. */
 export const LABELS = {
   ack: "Jag ser den",
@@ -69,8 +55,8 @@ export const LABELS = {
   done: "Klart!",
   snooze: "Inte just nu",
   another: "Ge mig en annan",
-  oracle: "Fråga oraklet",
-  addActivity: "Så ett nytt frö",
+  surprise: "Överraska mig",
+  addActivity: "Ny aktivitet",
   pause: "Pausa allt",
   resume: "Väck skogen",
 } as const;

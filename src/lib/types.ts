@@ -33,9 +33,10 @@ export interface Activity {
   id: string;
   userId: string;
   title: string;
-  description: string;
   frequency: FrequencyClass;
   tags: string[];
+  /** Exakt en valfri bild per aktivitet. Lokalt: data-URL. */
+  imageUrl?: string;
   active: boolean;
   createdAt: string;
 }

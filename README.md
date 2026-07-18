@@ -43,6 +43,33 @@ npm run preview    # servera byggd app
 node scripts/gen-icons.mjs   # regenerera PWA-ikoner
 ```
 
+## Multi-user med lokal server (utan Supabase)
+
+Ett alternativ till Supabase: en egen liten backend i `server/` (Node + Express
++ SQLite) med **användarnamn + lösenord** (bcrypt + JWT) och nudge-motorn som
+en worker. Ger äkta multi-user och synk mellan enheter utan extern BaaS.
+
+```bash
+# 1. Starta servern (port allokeras via Helm: helmctl port claim nudgeme-server)
+cd server && npm install && PORT=4303 npm start
+
+# 2. Peka appen mot servern och starta frontend
+cd .. && VITE_API_URL=http://localhost:4303 npm run dev
+```
+
+Då visar appen en inloggnings-/registreringsvy. Varje konto får egna seedade
+aktiviteter och en välkomstnudge direkt. Datakällan väljs i
+`src/lib/db/index.ts`: `VITE_API_URL` → `LocalServerStore` (server), annars
+Supabase eller `LocalStore`.
+
+Produktionsflaggor för servern (miljövariabler): `JWT_SECRET` (sätt ett eget!),
+`PORT`, `NUDGEME_DB` (sökväg till SQLite-filen), samt valfria
+`VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` för web push.
+
+> Testar du från telefonen via Tailscale? Sätt `VITE_API_URL` till serverns
+> Tailscale-URL (t.ex. `http://hemmalinux.taila35f69.ts.net:4303`), inte
+> `localhost`.
+
 ## Multi-user + riktiga notiser (Supabase)
 
 1. Skapa ett gratisprojekt på [supabase.com](https://supabase.com).

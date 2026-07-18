@@ -9,6 +9,9 @@ create table if not exists public.activities (
   description text default '',
   frequency char(1) not null check (frequency in ('A', 'B', 'C', 'D')),
   tags text[] not null default '{}',
+  -- Exakt en valfri bild per aktivitet. TODO: peka mot Supabase Storage-URL
+  -- istället för data-URL (se TODO.md).
+  image_url text,
   active boolean not null default true,
   created_at timestamptz not null default now()
 );

@@ -8,11 +8,22 @@ import Schedule from "./screens/Schedule";
 import Settings from "./screens/Settings";
 import History from "./screens/History";
 import Onboarding from "./screens/Onboarding";
+import Auth from "./screens/Auth";
 import { LeafIcon } from "./components/icons";
+import { isServerMode } from "./lib/db";
+import { getToken } from "./lib/api";
 
 const ONBOARDED_KEY = "nudgeme:onboarded";
 
 export default function App() {
+  const serverMode = isServerMode();
+  const [authed, setAuthed] = useState(() => !serverMode || !!getToken());
+
+  // I serverläge krävs inloggning innan datat laddas.
+  if (serverMode && !authed) {
+    return <Auth onAuthed={() => setAuthed(true)} />;
+  }
+
   return (
     <AppProvider>
       <Shell />

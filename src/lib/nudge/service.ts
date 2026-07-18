@@ -2,7 +2,6 @@ import type { DataStore } from "@/lib/db/store";
 import type { Activity, NudgeRecord } from "@/lib/types";
 import { selectNudge } from "./selection";
 import { nextNudgeTimestamp } from "./schedule";
-import { ORACLE_ANSWERS, pick } from "@/copy/voice";
 
 // Klientsidans nudge-motor. Speglar det som Edge Function + pg_cron gör på
 // servern i produktionsläge — men gör NudgeMe fullt körbar lokalt utan backend.
@@ -114,6 +113,13 @@ export class NudgeService {
       this.store.getFrequencySettings(),
       this.store.listNudges(),
     ]);
+    // Endast en snoozad i taget: när nästa aktivitet föreslås enligt schema
+    // blir en tidigare snoozad aktivitet automatiskt ignorerad.
+    for (const n of history) {
+      if (n.status === "snoozed") {
+        await this.store.saveNudge({ ...n, status: "ignored" });
+      }
+    }
     const activity = selectNudge(activities, settings, history, now);
     if (!activity) return null;
     const record: NudgeRecord = {
@@ -179,15 +185,37 @@ export class NudgeService {
 
   // --- På begäran ---
 
-  /** Magic eight ball: ett lekfullt orakelsvar plus en slumpaktivitet. */
-  async oracle(now = new Date(), rnd = Math.random) {
+  /** "Överraska mig": en slumpaktivitet på begäran ur den kvalificerade poolen. */
+  async surprise(
+    now = new Date(),
+    rnd = Math.random,
+    exclude?: string,
+  ): Promise<Activity | null> {
     const [activities, settings, history] = await Promise.all([
       this.store.listActivities(),
       this.store.getFrequencySettings(),
       this.store.listNudges(),
     ]);
-    const activity = selectNudge(activities, settings, history, now, rnd);
-    return { answer: pick(ORACLE_ANSWERS, rnd), activity };
+    return selectNudge(activities, settings, history, now, rnd, exclude);
+  }
+
+  /** Logga en på-begäran-aktivitet som genomförd, för historikens skull. */
+  async completeOnDemand(activityId: string, now = new Date()) {
+    const record: NudgeRecord = {
+      id: uid(),
+      userId: await this.userId(),
+      activityId,
+      sentAt: now.toISOString(),
+      status: "done",
+      ackedAt: now.toISOString(),
+      doneAt: now.toISOString(),
+    };
+    await this.store.saveNudge(record);
+  }
+
+  /** Revidera en snoozad nudge till genomförd (om man ändrat sig i historiken). */
+  async completeSnoozed(id: string, now = new Date()) {
+    await this.markDone(id, now);
   }
 
   async history(): Promise<NudgeRecord[]> {

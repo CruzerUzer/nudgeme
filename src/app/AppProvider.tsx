@@ -7,7 +7,7 @@ import {
   useState,
 } from "react";
 import type { ReactNode } from "react";
-import { getStore, isLocalMode } from "@/lib/db";
+import { getStore, isLocalMode, isServerMode } from "@/lib/db";
 import { NudgeService, type NudgeView } from "@/lib/nudge/service";
 import type {
   Activity,
@@ -20,6 +20,8 @@ import type {
 interface AppState {
   loading: boolean;
   localMode: boolean;
+  serverMode: boolean;
+  signOut: () => Promise<void>;
   service: NudgeService;
   current: NudgeView | null;
   activities: Activity[];
@@ -50,9 +52,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [history, setHistory] = useState<NudgeRecord[]>([]);
 
   const reload = useCallback(async () => {
-    // refresh() kör "cron-simuleringen" (generera/auto-ignorera) vid varje
-    // laddning, så en öppnad app alltid visar rätt aktuell nudge.
-    const cur = await service.refresh();
+    // I serverläge äger servern genereringen — klienten läser bara aktuell
+    // nudge. I lokalt läge kör refresh() "cron-simuleringen" som genererar.
+    const cur = isServerMode()
+      ? await service.currentNudge()
+      : await service.refresh();
     const [acts, freq, sched, np, hist] = await Promise.all([
       store.listActivities(),
       store.getFrequencySettings(),
@@ -86,6 +90,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const value: AppState = {
     loading,
     localMode: isLocalMode(),
+    serverMode: isServerMode(),
+    signOut: async () => {
+      await store.signOut();
+      window.location.reload();
+    },
     service,
     current,
     activities,

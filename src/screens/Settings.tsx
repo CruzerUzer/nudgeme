@@ -9,11 +9,12 @@ const CLASS_NAME: Record<FrequencyClass, string> = {
   A: "A · ofta",
   B: "B · sällan i veckan",
   C: "C · då och då i månaden",
-  D: "D · sällsynta äventyr",
+  D: "D · sällsynta aktiviteter",
 };
 
 export default function Settings() {
-  const { prefs, savePrefs, frequency, saveFrequency, localMode } = useApp();
+  const { prefs, savePrefs, frequency, saveFrequency, localMode, serverMode, signOut } =
+    useApp();
   const [pushMsg, setPushMsg] = useState<string | null>(null);
 
   async function onEnablePush() {
@@ -194,10 +195,18 @@ export default function Settings() {
         </div>
       </section>
 
+      {serverMode && (
+        <section className="card p-5">
+          <button className="btn-ghost w-full" onClick={() => void signOut()}>
+            Logga ut
+          </button>
+        </section>
+      )}
+
       {localMode && (
         <p className="px-2 text-center text-xs text-moss-400">
-          Lokalt läge: data sparas bara i den här webbläsaren. Koppla ett
-          Supabase-projekt för konton och riktiga notiser (se README).
+          Lokalt läge: data sparas bara i den här webbläsaren. Logga in mot en
+          lokal server för konton och synk (se README).
         </p>
       )}
     </div>

@@ -4,7 +4,6 @@ import {
   NUDGE_INVITATIONS,
   DONE_CHEERS,
   FOLLOWUP_PROMPTS,
-  ORACLE_ANSWERS,
   LABELS,
   PAUSED_MESSAGE,
   pick,
@@ -15,9 +14,7 @@ import type { Activity } from "@/lib/types";
 export default function Home() {
   const { current, prefs, service, reload } = useApp();
   const [cheer, setCheer] = useState<string | null>(null);
-  const [oracle, setOracle] = useState<{ answer: string; activity: Activity | null } | null>(
-    null,
-  );
+  const [surprise, setSurprise] = useState<Activity | null>(null);
 
   // Stabil invitation-text per nudge (byts inte vid varje render).
   const invitation = useMemo(
@@ -32,9 +29,9 @@ export default function Home() {
     await reload();
   }
 
-  async function askOracle() {
-    const res = await service.oracle();
-    setOracle(res);
+  async function askSurprise(exclude?: string) {
+    const res = await service.surprise(new Date(), Math.random, exclude);
+    setSurprise(res);
   }
 
   return (
@@ -78,35 +75,41 @@ export default function Home() {
         !prefs?.paused && !cheer && <QuietCard />
       )}
 
-      <OracleSection
-        result={oracle}
-        onAsk={askOracle}
-        onClear={() => setOracle(null)}
+      <SurpriseSection
+        activity={surprise}
+        onAsk={() => askSurprise()}
+        onAnother={() => askSurprise(surprise?.id)}
+        onDone={async () => {
+          if (surprise) await service.completeOnDemand(surprise.id);
+          setSurprise(null);
+          setCheer(pick(DONE_CHEERS));
+          await reload();
+        }}
+        onClear={() => setSurprise(null)}
       />
     </div>
   );
 }
 
 function Header() {
-  const hour = new Date().getHours();
-  const greeting =
-    hour < 5
-      ? "God natt"
-      : hour < 10
-        ? "God morgon"
-        : hour < 18
-          ? "God dag"
-          : "God kväll";
   return (
     <header className="flex items-center gap-3">
       <span className="animate-gentle-float text-moss-600">
         <LeafIcon className="h-9 w-9" />
       </span>
-      <div>
-        <p className="text-sm text-moss-500">{greeting}, äventyrare</p>
-        <h1 className="text-3xl leading-tight text-moss-700">NudgeMe</h1>
-      </div>
+      <h1 className="text-3xl leading-tight text-moss-700">NudgeMe</h1>
     </header>
+  );
+}
+
+/** Bild visas snyggt inuti brickan, under texten. */
+function ActivityImage({ src, alt }: { src: string; alt: string }) {
+  return (
+    <img
+      src={src}
+      alt={alt}
+      className="mt-4 max-h-56 w-full rounded-petal object-cover shadow-leaf"
+    />
   );
 }
 
@@ -131,8 +134,8 @@ function NudgeCard({
     <section className="card overflow-hidden p-6">
       <p className="mb-2 font-display text-lg italic text-gold-700">{invitation}</p>
       <h2 className="text-2xl leading-snug text-moss-900">{activity.title}</h2>
-      {activity.description && (
-        <p className="mt-2 text-moss-600">{activity.description}</p>
+      {activity.imageUrl && (
+        <ActivityImage src={activity.imageUrl} alt={activity.title} />
       )}
       <div className="my-5 filigree" />
       <div className="grid grid-cols-2 gap-3">
@@ -189,54 +192,50 @@ function QuietCard() {
     <section className="card p-6 text-center">
       <p className="font-display text-xl text-moss-700">Allt är lugnt just nu 🍃</p>
       <p className="mt-2 text-moss-600">
-        Din nästa knuff kommer när tiden är rätt. Under tiden kan du fråga oraklet.
+        Din nästa knuff kommer när tiden är rätt. Under tiden kan du be om en
+        överraskning.
       </p>
     </section>
   );
 }
 
-function OracleSection({
-  result,
+function SurpriseSection({
+  activity,
   onAsk,
+  onAnother,
+  onDone,
   onClear,
 }: {
-  result: { answer: string; activity: Activity | null } | null;
+  activity: Activity | null;
   onAsk: () => void;
+  onAnother: () => void;
+  onDone: () => void;
   onClear: () => void;
 }) {
   return (
     <section className="text-center">
-      {!result ? (
+      {!activity ? (
         <button className="btn-primary mx-auto" onClick={onAsk}>
           <SparkleIcon className="h-5 w-5" />
-          {LABELS.oracle}
+          {LABELS.surprise}
         </button>
       ) : (
         <div className="card animate-fade-in-up p-6">
-          <p className="font-display text-xl italic text-gold-700">
-            {result.answer}
-          </p>
-          {result.activity ? (
-            <>
-              <div className="my-4 filigree" />
-              <p className="text-sm uppercase tracking-wide text-moss-500">
-                Ett förslag i dimman
-              </p>
-              <p className="mt-1 text-lg text-moss-900">{result.activity.title}</p>
-            </>
-          ) : (
-            <p className="mt-3 text-moss-600">
-              {pick(ORACLE_ANSWERS)} (Lägg till fler aktiviteter för fler förslag.)
-            </p>
+          <p className="text-lg text-moss-900">{activity.title}</p>
+          {activity.imageUrl && (
+            <ActivityImage src={activity.imageUrl} alt={activity.title} />
           )}
-          <div className="mt-5 flex justify-center gap-3">
-            <button className="btn-gold" onClick={onAsk}>
-              Fråga igen
+          <div className="mt-5 grid grid-cols-2 gap-3">
+            <button className="btn-gold" onClick={onDone}>
+              {LABELS.done}
             </button>
-            <button className="btn-ghost" onClick={onClear}>
-              Stäng
+            <button className="btn-primary" onClick={onAnother}>
+              {LABELS.another}
             </button>
           </div>
+          <button className="btn-ghost mt-2 w-full" onClick={onClear}>
+            Stäng
+          </button>
         </div>
       )}
     </section>

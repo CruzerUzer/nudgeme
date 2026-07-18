@@ -13,7 +13,7 @@ const STEPS = [
   },
   {
     title: "Sällan blir speciellt",
-    body: "Dela in aktiviteter i A–D. A kommer ofta, D är sällsynta äventyr. Du styr själva takten i inställningarna.",
+    body: "Dela in aktiviteter i A–D. A kommer ofta, D är sällsynta aktiviteter. Du styr själva takten i inställningarna.",
   },
 ];
 

@@ -53,9 +53,9 @@ export class SupabaseStore implements DataStore {
       id: a.id,
       user_id: a.userId,
       title: a.title,
-      description: a.description,
       frequency: a.frequency,
       tags: a.tags,
+      image_url: a.imageUrl ?? null,
       active: a.active,
       created_at: a.createdAt,
     });
@@ -178,9 +178,9 @@ function rowToActivity(r: Record<string, any>): Activity {
     id: r.id,
     userId: r.user_id,
     title: r.title,
-    description: r.description ?? "",
     frequency: r.frequency,
     tags: r.tags ?? [],
+    imageUrl: r.image_url ?? undefined,
     active: r.active,
     createdAt: r.created_at,
   };

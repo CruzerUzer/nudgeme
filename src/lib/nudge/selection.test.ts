@@ -13,7 +13,6 @@ function activity(id: string, freq: Activity["frequency"]): Activity {
     id,
     userId: "u1",
     title: id,
-    description: "",
     frequency: freq,
     tags: [],
     active: true,

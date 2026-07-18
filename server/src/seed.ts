@@ -1,12 +1,5 @@
-import type { Activity } from "@/lib/types";
-
-// Startbibliotek av aktiviteter så appen känns levande direkt, fördelat över
-// frekvensklasserna A–D. Användaren kan ändra allt. Inga bilder seedas –
-// defaultanvändarens bilder laddas upp senare (se TODO i README).
-type Seed = Pick<Activity, "title" | "frequency"> & { tags?: string[] };
-
-export const SEED_ACTIVITIES: Seed[] = [
-  // A — ofta
+// Startbibliotek för nya konton (speglar frontendens src/lib/db/seed.ts).
+export const SEED_ACTIVITIES: { title: string; frequency: "A" | "B" | "C" | "D" }[] = [
   { title: "Tända ljus", frequency: "A" },
   { title: "Ring någon", frequency: "A" },
   { title: "Rita en fågel", frequency: "A" },
@@ -15,7 +8,6 @@ export const SEED_ACTIVITIES: Seed[] = [
   { title: "Gör yoga (lite mjukt) på yogamatta", frequency: "A" },
   { title: "Skicka ett snällt meddelande till någon", frequency: "A" },
 
-  // B — någon gång i veckan
   { title: "Tänd rökelse", frequency: "B" },
   { title: "Bada i badkaret", frequency: "B" },
   { title: "Baka något", frequency: "B" },
@@ -27,7 +19,6 @@ export const SEED_ACTIVITIES: Seed[] = [
   { title: "Boka in träff med någon för att göra något tillsammans", frequency: "B" },
   { title: "Laga något du aldrig lagat förr", frequency: "B" },
 
-  // C — någon gång i månaden
   { title: "Bjud in någon på middag", frequency: "C" },
   { title: "Boka in promenad i natur", frequency: "C" },
   { title: "Gå på promenad i naturen eller var i naturen", frequency: "C" },
@@ -45,7 +36,6 @@ export const SEED_ACTIVITIES: Seed[] = [
   { title: "Planera en liten utflykt", frequency: "C" },
   { title: "Boka en spontan mikrosemester", frequency: "C" },
 
-  // D — sällsynta
   { title: "Boka in konsert/event", frequency: "D" },
   { title: "Boka in en kurs", frequency: "D" },
   { title: "Boka in brädspelskväll", frequency: "D" },
