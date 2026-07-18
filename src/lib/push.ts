@@ -4,7 +4,7 @@ import type { PushSubscriptionRecord } from "@/lib/types";
 // Web Push-hjälpare. Push i webbläsare kräver: (1) service worker,
 // (2) användarens tillstånd, (3) en prenumeration med VAPID-nyckel som
 // skickas till servern. På iOS måste appen vara tillagd på hemskärmen först
-// (16.4+). Utan VAPID-nyckel/Supabase kan vi bara visa lokala notiser.
+// (16.4+). Utan VAPID-nyckel kan vi bara visa lokala notiser.
 
 export function pushSupported(): boolean {
   return (
@@ -53,7 +53,7 @@ export async function enablePush(): Promise<{ ok: boolean; message: string }> {
     return {
       ok: true,
       message:
-        "Notiser tillåtna. Riktiga push kräver ett Supabase-projekt med VAPID-nyckel (se README).",
+        "Notiser tillåtna. Riktiga push kräver en VAPID-nyckel på servern (se README).",
     };
   }
 

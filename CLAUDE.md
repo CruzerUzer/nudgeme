@@ -37,19 +37,17 @@ UI-ändringar: kör dev-servern och ta gärna en skärmbild (mobilvy 390px).
 - **Frontend:** React + Vite + TypeScript, PWA. Tailwind med design tokens i
   `tailwind.config.js`; global stil i `src/index.css`.
 - **Datakälla-abstraktion:** `src/lib/db/store.ts` (`DataStore`) med två
-  implementationer — `LocalStore` (localStorage, körs utan backend) och
-  `SupabaseStore` (multi-user via Auth + RLS). `getStore()` i
-  `src/lib/db/index.ts` väljer källa utifrån env.
+  implementationer — `LocalStore` (localStorage + IndexedDB för bilder, körs
+  utan backend) och `LocalServerStore` (multi-user mot den lokala servern).
+  `getStore()` i `src/lib/db/index.ts` väljer källa: `VITE_API_URL` satt → server.
 - **Kärnlogik (ren + testad):** `src/lib/nudge/` — `selection.ts` (frekvenstak,
   urval), `schedule.ts` (tidsspann, nästa nudge), `service.ts` (`NudgeService`:
   livscykel, auto-ignorering, "Överraska mig").
 - **Copy/röst:** all humoristisk text i `src/copy/voice.ts`.
-- **Backend, alt 1 (lokal server):** `server/` — Node + Express + SQLite +
+- **Backend (lokal server):** `server/` — Node + Express + SQLite +
   användarnamn/lösenord (bcrypt + JWT). Nudge-motorn som worker (`engine.ts`).
   Klienten pratar med den via `LocalServerStore` när `VITE_API_URL` är satt.
-- **Backend, alt 2 (Supabase):** SQL i `supabase/migrations/`, server-motor som
-  Edge Function i `supabase/functions/send-nudges/` + pg_cron. Speglar
-  `NudgeService`. Kvar som alternativ (se TODO.md).
+  (Supabase har tagits bort – appen är helt självdriven.)
 - **Push:** Web Push (VAPID) + service worker-hanterare i
   `public/push-handler.js`.
 

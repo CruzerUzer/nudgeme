@@ -30,9 +30,10 @@ npm install
 npm run dev
 ```
 
-Utan Supabase-nycklar kör appen i **lokalt läge**: all data ligger i
-webbläsarens `localStorage` och nudge-motorn simuleras i klienten. Perfekt för
-att utveckla och känna på flödet. Ett välkomnande första nudge dyker upp direkt.
+Utan `VITE_API_URL` kör appen i **lokalt läge**: all data ligger i webbläsaren
+(`localStorage` + bilder i IndexedDB) och nudge-motorn simuleras i klienten.
+Perfekt för att utveckla och känna på flödet. Ett välkomnande första nudge dyker
+upp direkt.
 
 Andra kommandon:
 
@@ -43,11 +44,11 @@ npm run preview    # servera byggd app
 node scripts/gen-icons.mjs   # regenerera PWA-ikoner
 ```
 
-## Multi-user med lokal server (utan Supabase)
+## Multi-user med lokal server
 
-Ett alternativ till Supabase: en egen liten backend i `server/` (Node + Express
-+ SQLite) med **användarnamn + lösenord** (bcrypt + JWT) och nudge-motorn som
-en worker. Ger äkta multi-user och synk mellan enheter utan extern BaaS.
+En egen liten backend i `server/` (Node + Express + SQLite) med **användarnamn +
+lösenord** (bcrypt + JWT) och nudge-motorn som en worker. Ger äkta multi-user och
+synk mellan enheter, helt självdriven utan extern BaaS.
 
 ```bash
 # 1. Starta servern (port allokeras via Helm: helmctl port claim nudgeme-server)
@@ -59,34 +60,18 @@ cd .. && VITE_API_URL=http://localhost:4303 npm run dev
 
 Då visar appen en inloggnings-/registreringsvy. Varje konto får egna seedade
 aktiviteter och en välkomstnudge direkt. Datakällan väljs i
-`src/lib/db/index.ts`: `VITE_API_URL` → `LocalServerStore` (server), annars
-Supabase eller `LocalStore`.
+`src/lib/db/index.ts`: `VITE_API_URL` satt → `LocalServerStore` (server), annars
+`LocalStore` (webbläsarlokalt).
 
-Produktionsflaggor för servern (miljövariabler): `JWT_SECRET` (sätt ett eget!),
-`PORT`, `NUDGEME_DB` (sökväg till SQLite-filen), samt valfria
-`VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` för web push.
+Serverns miljövariabler (kopiera `server/.env.example` → `server/.env`):
+`JWT_SECRET` (sätt ett eget i produktion!), `PORT`, `NUDGEME_DB` (sökväg till
+SQLite-filen), samt valfria `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` /
+`VAPID_SUBJECT` för web push. Default-bilder för seed-aktiviteter kan läggas i
+`server/assets/defaults/` (se den mappens `README`).
 
 > Testar du från telefonen via Tailscale? Sätt `VITE_API_URL` till serverns
 > Tailscale-URL (t.ex. `http://hemmalinux.taila35f69.ts.net:4303`), inte
 > `localhost`.
-
-## Multi-user + riktiga notiser (Supabase)
-
-1. Skapa ett gratisprojekt på [supabase.com](https://supabase.com).
-2. Kör migrationerna i `supabase/migrations/` (SQL Editor eller Supabase CLI).
-   De skapar tabeller + Row Level Security (dataisolering per användare).
-3. Aktivera tilläggen **pg_cron** och **pg_net**, fyll i `<PROJECT_REF>` och
-   service-nyckeln i `0002_cron.sql` och kör den – då anropas nudge-motorn varje
-   minut.
-4. Generera VAPID-nycklar och deploya Edge Function:
-   ```bash
-   npx web-push generate-vapid-keys
-   supabase functions deploy send-nudges
-   supabase secrets set VAPID_PUBLIC_KEY=... VAPID_PRIVATE_KEY=... VAPID_SUBJECT=mailto:du@exempel.se
-   ```
-5. Kopiera `.env.example` → `.env.local` och fyll i `VITE_SUPABASE_URL`,
-   `VITE_SUPABASE_ANON_KEY`, `VITE_VAPID_PUBLIC_KEY` och sätt
-   `VITE_DATA_SOURCE=supabase`.
 
 ### 📱 Push på iPhone
 
@@ -100,14 +85,14 @@ Onboardingen guidar användaren: Dela-ikonen → _"Lägg till på hemskärmen"_ 
 | ------------ | -------------------------------------------------------------- |
 | Frontend     | React + Vite + TypeScript, PWA (installerbar)                  |
 | Styling      | Tailwind CSS med alviska design tokens (`tailwind.config.js`)  |
-| Datakälla    | Abstraktion (`src/lib/db`): `LocalStore` ↔ `SupabaseStore`     |
-| Backend      | Supabase (Auth, Postgres + RLS, Edge Functions, pg_cron)      |
+| Datakälla    | Abstraktion (`src/lib/db`): `LocalStore` ↔ `LocalServerStore`  |
+| Backend      | `server/` – Node + Express + SQLite, auth (bcrypt + JWT)       |
 | Push         | Web Push (VAPID) + service worker (`public/push-handler.js`)   |
 | Kärnlogik    | Rena, testade funktioner i `src/lib/nudge/`                    |
 
 Den mesta affärslogiken (urval, frekvenstak, schema) är rena funktioner med
 enhetstester, och delas konceptuellt mellan klienten (`NudgeService`) och
-servern (`supabase/functions/send-nudges`).
+servern (`server/src/engine.ts`).
 
 ## Design & ton
 

@@ -1,5 +1,5 @@
-// Domänmodell för NudgeMe. Speglar Postgres-schemat i supabase/migrations
-// men används också av den lokala (localStorage) datakällan.
+// Domänmodell för NudgeMe. Delas av datakällorna (localStorage-läge och den
+// lokala serverns SQLite-backend).
 
 /** Frekvensklasser. A = ofta, D = mycket sällan. */
 export type FrequencyClass = "A" | "B" | "C" | "D";

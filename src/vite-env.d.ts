@@ -2,10 +2,10 @@
 /// <reference types="vite-plugin-pwa/client" />
 
 interface ImportMetaEnv {
-  readonly VITE_SUPABASE_URL?: string;
-  readonly VITE_SUPABASE_ANON_KEY?: string;
+  /** Adress till den lokala servern. Satt => inloggning + SQLite-backend. */
+  readonly VITE_API_URL?: string;
+  /** VAPID publik nyckel för web push (valfritt). */
   readonly VITE_VAPID_PUBLIC_KEY?: string;
-  readonly VITE_DATA_SOURCE?: "local" | "supabase";
 }
 
 interface ImportMeta {

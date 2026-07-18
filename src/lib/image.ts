@@ -1,7 +1,6 @@
-// Läser en uppladdad bild och skalar ner den till en rimlig data-URL. I lokalt
-// läge sparas bilden i localStorage, så vi håller nere storleken (maxDim + JPEG).
-// TODO: I Supabase-läge bör bilder istället laddas upp till Supabase Storage
-// och bara URL:en sparas – se TODO.md.
+// Läser en uppladdad bild och skalar ner den till en rimlig data-URL. Data-URL:en
+// lagras i IndexedDB (lokalt läge) eller skickas till servern (serverläge), så vi
+// håller nere storleken (maxDim + JPEG).
 
 export async function fileToDataUrl(file: File, maxDim = 1000): Promise<string> {
   const bitmap = await createImageBitmap(file);

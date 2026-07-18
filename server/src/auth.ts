@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import type { Request, Response, NextFunction } from "express";
 import { db } from "./db.js";
 import { SEED_ACTIVITIES } from "./seed.js";
+import { defaultImageDataUrl } from "./defaultImages.js";
 
 // Användarnamn + lösenord-autentisering. Lösenord hashas med bcrypt, sessionen
 // bärs av en JWT (Bearer-token). JWT_SECRET bör sättas i produktion.
@@ -56,7 +57,8 @@ export function register(username: string, password: string) {
   );
   const seed = db.transaction(() => {
     for (const a of SEED_ACTIVITIES) {
-      insert.run(randomUUID(), id, a.title, a.frequency, "[]", null, 1, now);
+      const image = defaultImageDataUrl(a.title); // null om ingen fil finns
+      insert.run(randomUUID(), id, a.title, a.frequency, "[]", image, 1, now);
     }
   });
   seed();

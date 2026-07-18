@@ -13,10 +13,10 @@ export interface EngineState {
 }
 
 // Persistensgränssnitt. Två implementationer: LocalStore (localStorage, för
-// utveckling/offline) och SupabaseStore (riktiga konton, multi-user). All
-// affärslogik ligger i NudgeService ovanpå detta gränssnitt.
+// utveckling/offline) och LocalServerStore (egen server + inloggning, multi-user).
+// All affärslogik ligger i NudgeService ovanpå detta gränssnitt.
 export interface DataStore {
-  /** Aktuell användares id. Lokalt: en genererad gäst. Supabase: auth-uid. */
+  /** Aktuell användares id. Lokalt: en genererad gäst. Server: konto-id. */
   getUserId(): Promise<string>;
   isAuthenticated(): Promise<boolean>;
   signOut(): Promise<void>;

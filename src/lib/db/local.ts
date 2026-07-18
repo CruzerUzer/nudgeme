@@ -1,5 +1,9 @@
 import type { DataStore, EngineState } from "./store";
 import { SEED_ACTIVITIES } from "./seed";
+import { putImage, getImage, deleteImage } from "./imageDb";
+
+/** Markör i localStorage-posten som säger att bilden ligger i IndexedDB. */
+const IDB_MARKER = "idb";
 import { defaultWeekSchedule } from "@/lib/nudge/schedule";
 import {
   DEFAULT_FREQUENCY,
@@ -102,18 +106,43 @@ export class LocalStore implements DataStore {
     localStorage.removeItem("nudgeme:currentUser");
   }
 
-  async listActivities() {
+  // Bilder lagras i IndexedDB, inte i localStorage. I aktivitetsposten ersätts
+  // data-URL:en av en markör ("idb") och hydreras tillbaka vid läsning.
+  private readRaw() {
     return read<Activity[]>(key(this.userId, "activities"), []);
   }
+
+  async listActivities() {
+    const all = this.readRaw();
+    return Promise.all(
+      all.map(async (a) =>
+        a.imageUrl === IDB_MARKER
+          ? { ...a, imageUrl: await getImage(a.id) }
+          : a,
+      ),
+    );
+  }
+
   async saveActivity(a: Activity) {
-    const all = await this.listActivities();
+    let stored: Activity = a;
+    if (a.imageUrl && a.imageUrl.startsWith("data:")) {
+      await putImage(a.id, a.imageUrl);
+      stored = { ...a, imageUrl: IDB_MARKER };
+    } else if (a.imageUrl !== IDB_MARKER) {
+      // Ingen bild (eller borttagen) – städa ev. gammal.
+      await deleteImage(a.id);
+      stored = { ...a, imageUrl: undefined };
+    }
+    const all = this.readRaw();
     const i = all.findIndex((x) => x.id === a.id);
-    if (i >= 0) all[i] = a;
-    else all.push(a);
+    if (i >= 0) all[i] = stored;
+    else all.push(stored);
     write(key(this.userId, "activities"), all);
   }
+
   async deleteActivity(id: string) {
-    const all = (await this.listActivities()).filter((x) => x.id !== id);
+    await deleteImage(id);
+    const all = this.readRaw().filter((x) => x.id !== id);
     write(key(this.userId, "activities"), all);
   }
 
