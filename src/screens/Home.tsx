@@ -58,7 +58,6 @@ export default function Home() {
           <NudgeCard
             activity={current.activity}
             committed={current.record.status === "committed"}
-            onAck={() => act(() => service.ack(current.record.id))}
             onCommit={() => act(() => service.commit(current.record.id))}
             onDone={() => act(() => service.markDone(current.record.id), true)}
             onSnooze={() => act(() => service.snooze(current.record.id))}
@@ -109,39 +108,37 @@ function ActivityImage({ src, alt }: { src: string; alt: string }) {
 function NudgeCard({
   activity,
   committed,
-  onAck,
   onCommit,
   onDone,
   onSnooze,
 }: {
   activity: Activity;
   committed: boolean;
-  onAck: () => void;
   onCommit: () => void;
   onDone: () => void;
   onSnooze: () => void;
 }) {
   return (
     <section className="card overflow-hidden p-6">
-      <h2 className="text-2xl leading-snug text-moss-900">{activity.title}</h2>
+      <h2 className="text-center text-2xl leading-snug text-moss-900">
+        {activity.title}
+      </h2>
       {activity.imageUrl && (
         <ActivityImage src={activity.imageUrl} alt={activity.title} />
       )}
       <div className="my-5 filigree" />
       <div className="grid grid-cols-2 gap-3">
+        {/* Innan åtagande: "Ja, jag gör det" + snooze.
+            Efter åtagande: "Klart!" dyker upp i stället. */}
         {!committed ? (
           <button className="btn-primary" onClick={onCommit}>
             {LABELS.commit}
           </button>
         ) : (
-          <span className="btn bg-moss-50 text-moss-600">Du sa ja 💚</span>
+          <button className="btn-gold" onClick={onDone}>
+            {LABELS.done}
+          </button>
         )}
-        <button className="btn-gold" onClick={onDone}>
-          {LABELS.done}
-        </button>
-        <button className="btn-ghost" onClick={onAck}>
-          {LABELS.ack}
-        </button>
         <button className="btn-ghost" onClick={onSnooze}>
           {LABELS.snooze}
         </button>
@@ -182,7 +179,7 @@ function QuietCard() {
     <section className="card p-6 text-center">
       <p className="font-display text-xl text-moss-700">Allt är lugnt just nu 🍃</p>
       <p className="mt-2 text-moss-600">
-        Din nästa knuff kommer när tiden är rätt. Under tiden kan du be om en
+        Din nästa aktivitet kommer när tiden är rätt. Under tiden kan du be om en
         överraskning.
       </p>
     </section>

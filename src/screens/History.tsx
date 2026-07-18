@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router-dom";
 import { useApp } from "@/app/AppProvider";
 import { EMPTY_HISTORY, pick } from "@/copy/voice";
 import type { NudgeStatus } from "@/lib/types";
@@ -22,14 +23,17 @@ function formatDate(iso: string): string {
 
 export default function History() {
   const { history, activities, service, reload } = useApp();
+  const navigate = useNavigate();
   const titleOf = (id: string) =>
     activities.find((a) => a.id === id)?.title ?? "En bortglömd aktivitet";
 
   const doneCount = history.filter((h) => h.status === "done").length;
 
-  async function doSnoozed(id: string) {
-    await service.completeSnoozed(id);
+  // Ångra en snooze: ta fram kortet på Hem (som committed), inte klarmarkera.
+  async function reviveSnoozed(id: string) {
+    await service.reviveSnoozed(id);
     await reload();
+    navigate("/");
   }
 
   return (
@@ -58,9 +62,9 @@ export default function History() {
                   {revivable && (
                     <button
                       className="mt-2 rounded-full bg-moss-700 px-3 py-1 text-xs font-semibold text-parchment-50 active:scale-[0.98]"
-                      onClick={() => doSnoozed(h.id)}
+                      onClick={() => reviveSnoozed(h.id)}
                     >
-                      Ändrat dig? Gör den ändå ✓
+                      Ångrade dig? Ta fram igen
                     </button>
                   )}
                 </div>

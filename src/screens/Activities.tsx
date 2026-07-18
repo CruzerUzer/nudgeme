@@ -190,10 +190,20 @@ function Editor({
                 alt=""
                 className="max-h-48 w-full rounded-2xl object-cover"
               />
-              <div className="mt-2 flex gap-2">
+              <div className="mt-2 flex flex-wrap gap-2">
                 <label className="btn-ghost cursor-pointer text-sm">
                   Byt bild
                   <input type="file" accept="image/*" className="hidden" onChange={onPickImage} />
+                </label>
+                <label className="btn-ghost cursor-pointer text-sm">
+                  Ta foto
+                  <input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    className="hidden"
+                    onChange={onPickImage}
+                  />
                 </label>
                 <button
                   className="btn text-sm text-blush-600 hover:bg-blush-400/10"
@@ -204,10 +214,22 @@ function Editor({
               </div>
             </div>
           ) : (
-            <label className="mt-2 flex cursor-pointer items-center justify-center rounded-2xl border border-dashed border-parchment-200 bg-parchment-50 px-4 py-6 text-moss-500">
-              Ladda upp en bild
-              <input type="file" accept="image/*" className="hidden" onChange={onPickImage} />
-            </label>
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <label className="flex cursor-pointer items-center justify-center rounded-2xl border border-dashed border-parchment-200 bg-parchment-50 px-4 py-6 text-center text-moss-500">
+                Ladda upp bild
+                <input type="file" accept="image/*" className="hidden" onChange={onPickImage} />
+              </label>
+              <label className="flex cursor-pointer items-center justify-center rounded-2xl border border-dashed border-parchment-200 bg-parchment-50 px-4 py-6 text-center text-moss-500">
+                Ta foto
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="hidden"
+                  onChange={onPickImage}
+                />
+              </label>
+            </div>
           )}
           {imgError && <p className="mt-1 text-sm text-blush-600">{imgError}</p>}
         </div>

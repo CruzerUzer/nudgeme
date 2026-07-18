@@ -5,7 +5,7 @@ import { isStandalone } from "@/lib/push";
 const STEPS = [
   {
     title: "Välkommen till NudgeMe",
-    body: "En vänlig liten skog som viskar fram roliga saker du annars glömmer bort. Inga krav, ingen stress – bara knuffar.",
+    body: "En vänlig liten skog som viskar fram roliga saker du annars glömmer bort. Inga krav, ingen stress – bara aktiviteter.",
   },
   {
     title: "Du bestämmer takten",

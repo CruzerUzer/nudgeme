@@ -4,7 +4,7 @@ En snäll, mobil-först webbapp som viskar fram roliga och utvecklande
 aktiviteter du annars glömmer bort. Vacker, alvisk och romantasy-doftande —
 med glimten i ögat. Aldrig tvingande, aldrig tjatig.
 
-> _"En vänlig knuff, inte en spark."_
+> _"En vänlig påminnelse om aktiviteter, inte en spark."_
 
 ## Vad appen gör
 

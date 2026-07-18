@@ -33,7 +33,7 @@ export default function Settings() {
           <div>
             <h2 className="text-lg text-moss-800">Viloläge</h2>
             <p className="text-sm text-moss-500">
-              Pausa alla knuffar utan att förlora något.
+              Pausa alla aktiviteter utan att förlora något.
             </p>
           </div>
           <button
@@ -47,7 +47,7 @@ export default function Settings() {
 
       {/* Notisnivå */}
       <section className="card p-5">
-        <h2 className="text-lg text-moss-800">Hur syns knuffarna?</h2>
+        <h2 className="text-lg text-moss-800">Hur syns aktiviteterna?</h2>
         <p className="mb-3 text-sm text-moss-500">
           Från nästan osynligt till tydligt. Aldrig tjatigt.
         </p>
@@ -100,7 +100,7 @@ export default function Settings() {
       {/* Tysta timmar */}
       <section className="card p-5">
         <h2 className="text-lg text-moss-800">Tysta timmar</h2>
-        <p className="mb-3 text-sm text-moss-500">Inga knuffar under natten.</p>
+        <p className="mb-3 text-sm text-moss-500">Inga aktiviteter under natten.</p>
         <div className="grid grid-cols-2 gap-3">
           <label className="block">
             <span className="text-xs text-moss-500">Från</span>

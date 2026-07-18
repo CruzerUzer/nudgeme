@@ -74,5 +74,5 @@ export async function enablePush(): Promise<{ ok: boolean; message: string }> {
     },
   };
   await store.savePushSubscription(record);
-  return { ok: true, message: "Klart! Du får en vänlig knuff när tiden är rätt." };
+  return { ok: true, message: "Klart! Du får en aktivitet när tiden är rätt." };
 }

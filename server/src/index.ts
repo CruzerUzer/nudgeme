@@ -9,6 +9,7 @@ import {
   DEFAULT_FREQUENCY,
   DEFAULT_NOTIFICATION_PREFS,
   defaultWeekSchedule,
+  nextTimestamp,
 } from "./nudge.js";
 
 const app = express();
@@ -68,6 +69,15 @@ for (const [path, key] of [
   );
   api.put(`/${path}`, (req: AuthedRequest, res) => {
     repo.setKv(req.userId!, key, req.body);
+    // När schemat ändras: räkna om nästa aktivitets-tidpunkt direkt, annars
+    // sitter den kvar på den gamla (t.ex. ett dygn bort) och nya inställningar
+    // (som fler per dag) får ingen effekt förrän den gamla tiden passerat.
+    if (key === "schedule") {
+      const next = nextTimestamp(new Date(), req.body ?? []);
+      repo.setKv(req.userId!, "engine", {
+        nextNudgeAt: next ? next.toISOString() : null,
+      });
+    }
     res.json({ ok: true });
   });
 }

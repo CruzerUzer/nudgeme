@@ -21,7 +21,7 @@ export default function Schedule() {
       <div>
         <h1 className="text-2xl text-moss-700">Schema</h1>
         <p className="text-sm text-moss-500">
-          Välj tidsspann per dag. Dina knuffar kommer på slumpad tid inom spannet.
+          Välj tidsspann per dag. Dina aktiviteter kommer på slumpad tid inom spannet.
         </p>
       </div>
 

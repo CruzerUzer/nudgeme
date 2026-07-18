@@ -9,6 +9,7 @@ import {
 import type { ReactNode } from "react";
 import { getStore, isLocalMode, isServerMode } from "@/lib/db";
 import { NudgeService, type NudgeView } from "@/lib/nudge/service";
+import { nextNudgeTimestamp } from "@/lib/nudge/schedule";
 import type {
   Activity,
   DaySchedule,
@@ -81,9 +82,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const onFocus = () => void reload();
     window.addEventListener("focus", onFocus);
     document.addEventListener("visibilitychange", onFocus);
+    // Poll så att nya aktiviteter dyker upp av sig själva (servern genererar
+    // dem, och lokalt läge genererar när det är dags) utan manuell omladdning.
+    const poll = window.setInterval(() => void reload(), 15_000);
     return () => {
       window.removeEventListener("focus", onFocus);
       document.removeEventListener("visibilitychange", onFocus);
+      window.clearInterval(poll);
     };
   }, [reload]);
 
@@ -117,6 +122,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     },
     saveSchedule: async (s) => {
       await store.saveSchedule(s);
+      // Lokalt läge: räkna om nästa aktivitets-tidpunkt så ändringen får effekt
+      // direkt (i serverläge gör servern det på PUT /schedule).
+      if (!isServerMode()) {
+        const next = nextNudgeTimestamp(new Date(), s);
+        await store.saveEngineState({
+          nextNudgeAt: next ? next.toISOString() : null,
+        });
+      }
       await reload();
     },
     savePrefs: async (p) => {

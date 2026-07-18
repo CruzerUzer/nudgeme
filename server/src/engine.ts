@@ -56,7 +56,7 @@ async function pushToUser(userId: string, title: string) {
   const prefs = repo.getPrefs(userId) as any;
   const subs = repo.listPushSubs(userId);
   const payload = JSON.stringify({
-    title: "En vänlig knuff",
+    title: "Dags för en aktivitet",
     body: title,
     silent: prefs.level <= 2,
     vibrate: prefs.level >= 4 ? [80, 40, 80] : undefined,
@@ -84,15 +84,18 @@ function processUser(userId: string, now: Date) {
     reschedule(userId, now);
     return;
   }
+  // listNudges är sorterad senast först → [0] bland väntande är den aktuella.
   const nudges = repo.listNudges(userId);
-  const pendingSent = nudges.find((n) => n.status === "sent");
-  if (pendingSent) repo.upsertNudge(userId, { ...pendingSent, status: "ignored" });
-
-  const committed = nudges.find((n) => n.status === "acked" || n.status === "committed");
-  if (committed) {
+  const pending = nudges.find((n) =>
+    ["sent", "acked", "committed"].includes(n.status),
+  );
+  // Har man aktivt åtagit sig (committed) väntar vi – ersätt inte. Annars
+  // (sent/acked, dvs osvarad) auto-ignoreras den och en ny genereras.
+  if (pending?.status === "committed") {
     reschedule(userId, now);
     return;
   }
+  if (pending) repo.upsertNudge(userId, { ...pending, status: "ignored" });
   generate(userId, now);
   reschedule(userId, now);
 }
@@ -108,7 +111,7 @@ export function tick(now = new Date()) {
   }
 }
 
-export function startEngine(intervalMs = 60_000) {
+export function startEngine(intervalMs = Number(process.env.TICK_MS) || 60_000) {
   tick();
   return setInterval(() => tick(), intervalMs);
 }

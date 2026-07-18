@@ -79,16 +79,15 @@ export class NudgeService {
     const due = new Date(engine.nextNudgeAt).getTime() <= now.getTime();
     if (!due) return this.currentNudge(now);
 
-    // Det är dags: auto-ignorera en obesvarad (fortfarande "sent") nudge.
+    // Har man aktivt åtagit sig (committed) väntar vi – ersätt inte. Annars
+    // (osvarad) auto-ignoreras den aktuella och en ny genereras.
     const current = await this.currentNudge(now);
-    if (current && current.record.status === "sent") {
-      await this.store.saveNudge({ ...current.record, status: "ignored" });
-    }
-    // Om användaren redan ackat/committat låter vi den ligga kvar och
-    // skjuter bara fram nästa tid (skapar ingen krockande ny nudge).
-    if (current && current.record.status !== "sent") {
+    if (current?.record.status === "committed") {
       await this.scheduleNext(now, schedule);
       return current;
+    }
+    if (current) {
+      await this.store.saveNudge({ ...current.record, status: "ignored" });
     }
 
     const created = await this.generate(now);
@@ -213,9 +212,21 @@ export class NudgeService {
     await this.store.saveNudge(record);
   }
 
-  /** Revidera en snoozad nudge till genomförd (om man ändrat sig i historiken). */
-  async completeSnoozed(id: string, now = new Date()) {
-    await this.markDone(id, now);
+  /**
+   * Ångra en snooze: ta fram den snoozade aktiviteten igen som ett aktivt kort
+   * på Hem, precis som om man fått den och tryckt "Ja, jag gör det" (status
+   * committed). Blir alltså INTE genomförd direkt. sentAt sätts till nu så att
+   * kortet blir det aktuella.
+   */
+  async reviveSnoozed(id: string, now = new Date()) {
+    await this.transition(id, (n) => ({
+      ...n,
+      status: "committed",
+      sentAt: now.toISOString(),
+      ackedAt: now.toISOString(),
+      doneAt: undefined,
+      followUpAskedAt: undefined,
+    }));
   }
 
   async history(): Promise<NudgeRecord[]> {
