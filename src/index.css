@@ -1,0 +1,85 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-parchment-100 text-moss-900 font-body antialiased;
+    /* Mjuk skogsdimma i bakgrunden — alviskt djup utan att störa läsbarheten. */
+    background-image:
+      radial-gradient(
+        60% 50% at 50% 0%,
+        rgba(143, 170, 182, 0.18) 0%,
+        transparent 70%
+      ),
+      radial-gradient(
+        80% 60% at 100% 100%,
+        rgba(92, 122, 75, 0.15) 0%,
+        transparent 60%
+      );
+    background-attachment: fixed;
+  }
+
+  h1,
+  h2,
+  h3 {
+    @apply font-display;
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-petal bg-parchment-50/90 shadow-leaf backdrop-blur-sm
+      border border-parchment-200;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-3
+      font-semibold transition active:scale-[0.98]
+      focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-500;
+  }
+
+  .btn-primary {
+    @apply btn bg-moss-700 text-parchment-50 shadow-leaf hover:bg-moss-600;
+  }
+
+  .btn-ghost {
+    @apply btn bg-transparent text-moss-700 hover:bg-moss-50;
+  }
+
+  .btn-gold {
+    @apply btn bg-gold-500 text-moss-900 hover:bg-gold-300 shadow-glow;
+  }
+
+  /* Gyllene filigran-linje som avdelare. */
+  .filigree {
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(201, 162, 75, 0.6),
+      transparent
+    );
+  }
+}
+
+/* Respektera användare som vill ha mindre rörelse. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}

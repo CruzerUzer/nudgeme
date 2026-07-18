@@ -1,0 +1,197 @@
+import { useState } from "react";
+import { useApp } from "@/app/AppProvider";
+import { EMPTY_ACTIVITIES, LABELS, pick } from "@/copy/voice";
+import type { Activity, FrequencyClass } from "@/lib/types";
+
+const CLASS_LABEL: Record<FrequencyClass, string> = {
+  A: "A · ofta",
+  B: "B · ~1/vecka",
+  C: "C · ~1/månad",
+  D: "D · sällan",
+};
+
+const CLASS_COLOR: Record<FrequencyClass, string> = {
+  A: "bg-moss-100 text-moss-700",
+  B: "bg-mist-300 text-mist-700",
+  C: "bg-gold-300 text-gold-700",
+  D: "bg-blush-400/40 text-blush-600",
+};
+
+const uid = () =>
+  (crypto.randomUUID?.() ?? Math.random().toString(36).slice(2)) as string;
+
+export default function Activities() {
+  const { activities, saveActivity, deleteActivity } = useApp();
+  const [editing, setEditing] = useState<Activity | null>(null);
+
+  return (
+    <div className="space-y-5">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl text-moss-700">Aktiviteter</h1>
+        <button className="btn-primary" onClick={() => setEditing(blank())}>
+          {LABELS.addActivity}
+        </button>
+      </div>
+
+      {activities.length === 0 ? (
+        <p className="card p-6 text-center text-moss-600">
+          {pick(EMPTY_ACTIVITIES)}
+        </p>
+      ) : (
+        <ul className="space-y-3">
+          {activities.map((a) => (
+            <li key={a.id} className="card flex items-start gap-3 p-4">
+              <span
+                className={`mt-0.5 rounded-full px-2 py-1 text-xs font-bold ${CLASS_COLOR[a.frequency]}`}
+              >
+                {a.frequency}
+              </span>
+              <button
+                className="flex-1 text-left"
+                onClick={() => setEditing(a)}
+              >
+                <p
+                  className={`text-lg ${a.active ? "text-moss-900" : "text-moss-400 line-through"}`}
+                >
+                  {a.title}
+                </p>
+                {a.description && (
+                  <p className="text-sm text-moss-500">{a.description}</p>
+                )}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {editing && (
+        <Editor
+          activity={editing}
+          onCancel={() => setEditing(null)}
+          onSave={async (a) => {
+            await saveActivity(a);
+            setEditing(null);
+          }}
+          onDelete={async (id) => {
+            await deleteActivity(id);
+            setEditing(null);
+          }}
+        />
+      )}
+    </div>
+  );
+
+  function blank(): Activity {
+    return {
+      id: uid(),
+      userId: "",
+      title: "",
+      description: "",
+      frequency: "A",
+      tags: [],
+      active: true,
+      createdAt: new Date().toISOString(),
+    };
+  }
+}
+
+function Editor({
+  activity,
+  onSave,
+  onCancel,
+  onDelete,
+}: {
+  activity: Activity;
+  onSave: (a: Activity) => void;
+  onCancel: () => void;
+  onDelete: (id: string) => void;
+}) {
+  const [draft, setDraft] = useState<Activity>(activity);
+  const isNew = !activity.title;
+
+  return (
+    <div
+      className="fixed inset-0 z-30 flex items-end justify-center bg-moss-900/40 p-0 backdrop-blur-sm"
+      onClick={onCancel}
+    >
+      <div
+        className="card w-full max-w-md space-y-4 rounded-b-none p-6 pb-8"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 className="text-xl text-moss-700">
+          {isNew ? "Så ett nytt frö" : "Redigera aktivitet"}
+        </h2>
+
+        <label className="block">
+          <span className="text-sm text-moss-500">Vad?</span>
+          <input
+            autoFocus
+            className="mt-1 w-full rounded-2xl border border-parchment-200 bg-parchment-50 px-4 py-3 outline-none focus:ring-2 focus:ring-gold-500"
+            value={draft.title}
+            placeholder="T.ex. Plocka en vild blomma"
+            onChange={(e) => setDraft({ ...draft, title: e.target.value })}
+          />
+        </label>
+
+        <label className="block">
+          <span className="text-sm text-moss-500">Liten beskrivning (valfritt)</span>
+          <input
+            className="mt-1 w-full rounded-2xl border border-parchment-200 bg-parchment-50 px-4 py-3 outline-none focus:ring-2 focus:ring-gold-500"
+            value={draft.description}
+            onChange={(e) => setDraft({ ...draft, description: e.target.value })}
+          />
+        </label>
+
+        <div>
+          <span className="text-sm text-moss-500">Hur ofta?</span>
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            {(Object.keys(CLASS_LABEL) as FrequencyClass[]).map((c) => (
+              <button
+                key={c}
+                onClick={() => setDraft({ ...draft, frequency: c })}
+                className={`rounded-2xl border px-3 py-2 text-sm font-semibold transition ${
+                  draft.frequency === c
+                    ? "border-moss-600 bg-moss-50 text-moss-700"
+                    : "border-parchment-200 text-moss-500"
+                }`}
+              >
+                {CLASS_LABEL[c]}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <label className="flex items-center justify-between rounded-2xl bg-parchment-50 px-4 py-3">
+          <span className="text-moss-600">Aktiv</span>
+          <input
+            type="checkbox"
+            className="h-5 w-5 accent-moss-600"
+            checked={draft.active}
+            onChange={(e) => setDraft({ ...draft, active: e.target.checked })}
+          />
+        </label>
+
+        <div className="flex gap-3 pt-2">
+          <button
+            className="btn-primary flex-1 disabled:opacity-40"
+            disabled={!draft.title.trim()}
+            onClick={() => onSave(draft)}
+          >
+            Spara
+          </button>
+          <button className="btn-ghost" onClick={onCancel}>
+            Avbryt
+          </button>
+        </div>
+        {!isNew && (
+          <button
+            className="btn w-full text-blush-600 hover:bg-blush-400/10"
+            onClick={() => onDelete(draft.id)}
+          >
+            Ta bort
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}

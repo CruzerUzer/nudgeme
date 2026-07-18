@@ -1,0 +1,102 @@
+import { useApp } from "@/app/AppProvider";
+import { WEEKDAY_NAMES, WEEK_ORDER, minutesToHHMM, hhmmToMinutes } from "@/lib/time";
+import type { DaySchedule } from "@/lib/types";
+
+export default function Schedule() {
+  const { schedule, saveSchedule } = useApp();
+
+  function update(weekday: number, patch: Partial<DaySchedule>) {
+    const next = schedule.map((d) =>
+      d.weekday === weekday ? { ...d, ...patch } : d,
+    );
+    void saveSchedule(next);
+  }
+
+  const ordered = WEEK_ORDER.map((w) => schedule.find((d) => d.weekday === w)).filter(
+    Boolean,
+  ) as DaySchedule[];
+
+  return (
+    <div className="space-y-5">
+      <div>
+        <h1 className="text-2xl text-moss-700">Schema</h1>
+        <p className="text-sm text-moss-500">
+          Välj tidsspann per dag. Dina knuffar kommer på slumpad tid inom spannet.
+        </p>
+      </div>
+
+      <ul className="space-y-3">
+        {ordered.map((day) => (
+          <li key={day.weekday} className="card p-4">
+            <div className="flex items-center justify-between">
+              <span className="font-display text-lg text-moss-800">
+                {WEEKDAY_NAMES[day.weekday]}
+              </span>
+              <label className="flex items-center gap-2 text-sm text-moss-500">
+                {day.enabled ? "På" : "Vilodag"}
+                <input
+                  type="checkbox"
+                  className="h-5 w-5 accent-moss-600"
+                  checked={day.enabled}
+                  onChange={(e) => update(day.weekday, { enabled: e.target.checked })}
+                />
+              </label>
+            </div>
+
+            {day.enabled && (
+              <div className="mt-3 grid grid-cols-3 gap-3">
+                <TimeField
+                  label="Från"
+                  value={day.startMinutes}
+                  onChange={(v) => update(day.weekday, { startMinutes: v })}
+                />
+                <TimeField
+                  label="Till"
+                  value={day.endMinutes}
+                  onChange={(v) => update(day.weekday, { endMinutes: v })}
+                />
+                <label className="block">
+                  <span className="text-xs text-moss-500">Antal/dag</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={8}
+                    className="mt-1 w-full rounded-xl border border-parchment-200 bg-parchment-50 px-3 py-2 outline-none focus:ring-2 focus:ring-gold-500"
+                    value={day.nudgesPerDay}
+                    onChange={(e) =>
+                      update(day.weekday, {
+                        nudgesPerDay: Math.max(0, Number(e.target.value)),
+                      })
+                    }
+                  />
+                </label>
+              </div>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function TimeField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  onChange: (minutes: number) => void;
+}) {
+  return (
+    <label className="block">
+      <span className="text-xs text-moss-500">{label}</span>
+      <input
+        type="time"
+        className="mt-1 w-full rounded-xl border border-parchment-200 bg-parchment-50 px-3 py-2 outline-none focus:ring-2 focus:ring-gold-500"
+        value={minutesToHHMM(value)}
+        onChange={(e) => onChange(hhmmToMinutes(e.target.value))}
+      />
+    </label>
+  );
+}
