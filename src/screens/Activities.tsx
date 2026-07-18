@@ -12,10 +12,10 @@ const CLASS_LABEL: Record<FrequencyClass, string> = {
 };
 
 const CLASS_COLOR: Record<FrequencyClass, string> = {
-  A: "bg-moss-100 text-moss-700",
-  B: "bg-mist-300 text-mist-700",
-  C: "bg-gold-300 text-gold-700",
-  D: "bg-blush-400/40 text-blush-600",
+  A: "bg-gold-300 text-gold-700",
+  B: "bg-moss-100 text-moss-700",
+  C: "bg-mist-300 text-mist-700",
+  D: "bg-parchment-200 text-moss-500",
 };
 
 const CLASS_ORDER: Record<FrequencyClass, number> = { A: 0, B: 1, C: 2, D: 3 };

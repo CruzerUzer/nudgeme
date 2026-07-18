@@ -7,39 +7,41 @@ export default {
   content: ["./index.html", "./src/**/*.{ts,tsx}"],
   theme: {
     extend: {
+      // Palett: "Sylvan Grace" (se DESIGN.md) – skogsgrön, gammelguld, dimblått
+      // och varm pergament. Skalnamnen behålls; värdena speglar designsystemet.
       colors: {
         moss: {
-          50: "#eef2ea",
-          100: "#d9e2d0",
-          300: "#9db98a",
-          500: "#5c7a4b",
-          600: "#47603a",
-          700: "#2f4a3c", // primär skogsgrön
-          900: "#1c2e24",
+          50: "#eaf0ea",
+          100: "#d3e8d5", // ljus grön (badge-bg)
+          300: "#b7ccb9",
+          500: "#506354", // dämpad text
+          600: "#4a5d4e", // primary-container
+          700: "#334537", // primär skogsgrön
+          900: "#1b1c19", // on-surface (djup text)
         },
         gold: {
-          300: "#e8d3a0",
-          500: "#c9a24b", // gammelguld / filigran
-          700: "#9c7a30",
+          300: "#fed488", // secondary-container (ljus guld)
+          500: "#e9c176", // medelguld
+          700: "#775a19", // mörk guldtext
         },
         mist: {
-          300: "#cdd8de",
-          500: "#8faab6", // dimblått
-          700: "#5c7480",
+          300: "#cee6f5", // ljus dimblå
+          500: "#455b67", // tertiary-container
+          700: "#2e444f", // mörk dimblå text
         },
         parchment: {
-          50: "#faf6ec",
-          100: "#f4efe4", // varm off-white bakgrund
-          200: "#e9e0cb",
+          50: "#fbf9f4", // yta / kort
+          100: "#f4f2ec", // varm sidbakgrund
+          200: "#dcdad3", // fina kanter
         },
         blush: {
-          400: "#d9a1a6", // romantasy-rosa accent
-          600: "#b9727a",
+          400: "#e6a5a1", // mjuk röd accent
+          600: "#ba1a1a", // fel/ta bort
         },
       },
       fontFamily: {
-        display: ['"Cormorant Garamond"', "Georgia", "serif"],
-        body: ['"Nunito Sans"', "system-ui", "sans-serif"],
+        display: ['"EB Garamond"', "Georgia", "serif"],
+        body: ['"Be Vietnam Pro"', "system-ui", "sans-serif"],
       },
       borderRadius: {
         petal: "1.75rem",

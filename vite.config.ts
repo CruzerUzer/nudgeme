@@ -20,8 +20,8 @@ export default defineConfig({
         short_name: "NudgeMe",
         description:
           "En snäll app som viskar fram roliga aktiviteter du annars glömmer bort.",
-        theme_color: "#2f4a3c",
-        background_color: "#f4efe4",
+        theme_color: "#334537",
+        background_color: "#f4f2ec",
         display: "standalone",
         orientation: "portrait",
         start_url: "/",

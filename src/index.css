@@ -19,12 +19,12 @@
     background-image:
       radial-gradient(
         60% 50% at 50% 0%,
-        rgba(143, 170, 182, 0.18) 0%,
+        rgba(46, 68, 79, 0.14) 0%,
         transparent 70%
       ),
       radial-gradient(
         80% 60% at 100% 100%,
-        rgba(92, 122, 75, 0.15) 0%,
+        rgba(51, 69, 55, 0.14) 0%,
         transparent 60%
       );
     background-attachment: fixed;

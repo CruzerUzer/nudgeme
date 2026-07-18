@@ -64,8 +64,8 @@ function NavItem({
   return (
     <>
       <span
-        className={`grid place-items-center rounded-full p-1 transition ${
-          active ? "bg-moss-50 text-moss-700" : ""
+        className={`grid place-items-center rounded-full px-5 py-1 transition ${
+          active ? "bg-gold-300 text-gold-700" : ""
         }`}
       >
         {children}
