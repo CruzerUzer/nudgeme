@@ -4,9 +4,10 @@ Arbetsregler och projektkontext för Claude Code i det här repot.
 
 ## Arbetsregler (viktigast)
 
-- **Gör alltid ändringar på en egen branch** — aldrig commits direkt på `main`.
-  Skapa en beskrivande branch (t.ex. `feature/inloggning`, `fix/snooze-status`)
-  och öppna PR mot `main`.
+- **Utveckla alltid på en NY branch** — starta varje ny uppgift/feature med en
+  egen färsk branch (t.ex. `feature/inloggning`, `fix/snooze-status`). Aldrig
+  commits direkt på `main`, och återanvänd inte en tidigare features branch för
+  nytt orelaterat arbete. Öppna PR mot `main`.
 - **Fråga alltid Adam innan deploy till produktion.** Bygge och lokala tester
   får köras fritt, men produktionsdeploy (t.ex. Supabase functions deploy,
   hosting av frontend, cron-schemaläggning) sker aldrig utan uttryckligt ja.

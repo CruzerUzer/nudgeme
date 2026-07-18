@@ -1,14 +1,9 @@
-import { apiBase, setSession, clearSession } from "@/lib/api";
+import { apiBase, setSession, clearSession, setMustChange, type Session } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
 
-// Inloggning/registrering mot den lokala servern (användarnamn + lösenord).
+// Inloggning/registrering och lösenords-/adminfunktioner mot den lokala servern.
 
-interface AuthResult {
-  id: string;
-  username: string;
-  token: string;
-}
-
-async function post(path: string, body: unknown): Promise<AuthResult> {
+async function post(path: string, body: unknown): Promise<Session> {
   const res = await fetch(`${apiBase()}${path}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -16,21 +11,57 @@ async function post(path: string, body: unknown): Promise<AuthResult> {
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error ?? "Något gick fel.");
-  return data as AuthResult;
+  return data as Session;
 }
 
 export async function registerUser(username: string, password: string) {
   const r = await post("/api/auth/register", { username, password });
-  setSession(r.id, r.token);
+  setSession(r);
   return r;
 }
 
 export async function loginUser(username: string, password: string) {
   const r = await post("/api/auth/login", { username, password });
-  setSession(r.id, r.token);
+  setSession(r);
   return r;
 }
 
 export function logout() {
   clearSession();
+}
+
+/** Byt eget lösenord. Rensar även tvingat-byte-flaggan lokalt. */
+export async function changePassword(oldPassword: string, newPassword: string) {
+  await apiFetch("/api/auth/change-password", {
+    method: "POST",
+    body: JSON.stringify({ oldPassword, newPassword }),
+  });
+  setMustChange(false);
+}
+
+// --- Admin ---
+
+export interface AdminUser {
+  id: string;
+  username: string;
+  role: string;
+  mustChangePassword: boolean;
+}
+
+export function adminListUsers() {
+  return apiFetch<AdminUser[]>("/api/admin/users");
+}
+
+export function adminCreateUser(username: string) {
+  return apiFetch<{ id: string; username: string; defaultPassword: string }>(
+    "/api/admin/users",
+    { method: "POST", body: JSON.stringify({ username }) },
+  );
+}
+
+export function adminResetPassword(id: string) {
+  return apiFetch<{ defaultPassword: string }>(
+    `/api/admin/users/${id}/reset-password`,
+    { method: "POST" },
+  );
 }

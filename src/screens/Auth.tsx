@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { LeafIcon } from "@/components/icons";
+import PasswordInput from "@/components/PasswordInput";
 import { registerUser, loginUser } from "@/lib/serverAuth";
 
 // Inloggning/registrering för serverläge (användarnamn + lösenord).
@@ -52,13 +53,11 @@ export default function Auth({ onAuthed }: { onAuthed: () => void }) {
           />
         </label>
         <label className="block">
-          <span className="text-sm text-moss-500">Lösenord</span>
-          <input
-            type="password"
-            autoComplete={isRegister ? "new-password" : "current-password"}
-            className="mt-1 w-full rounded-2xl border border-parchment-200 bg-parchment-50 px-4 py-3 outline-none focus:ring-2 focus:ring-gold-500"
+          <span className="mb-1 block text-sm text-moss-500">Lösenord</span>
+          <PasswordInput
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={setPassword}
+            autoComplete={isRegister ? "new-password" : "current-password"}
           />
         </label>
 

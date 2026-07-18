@@ -2,7 +2,19 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import "./db.js";
-import { register, login, requireAuth, HttpError, type AuthedRequest } from "./auth.js";
+import {
+  register,
+  login,
+  requireAuth,
+  requireAdmin,
+  me,
+  changePassword,
+  adminCreateUser,
+  adminResetPassword,
+  listUsers,
+  HttpError,
+  type AuthedRequest,
+} from "./auth.js";
 import { repo } from "./repo.js";
 import { initUserEngine, startEngine } from "./engine.js";
 import {
@@ -43,7 +55,40 @@ app.post("/api/auth/login", (req, res) => {
 const api = express.Router();
 api.use(requireAuth);
 
-api.get("/me", (req: AuthedRequest, res) => res.json({ id: req.userId }));
+api.get("/me", (req: AuthedRequest, res) => {
+  try {
+    res.json(me(req.userId!));
+  } catch (e) {
+    sendError(res, e);
+  }
+});
+
+api.post("/auth/change-password", (req: AuthedRequest, res) => {
+  try {
+    const { oldPassword, newPassword } = req.body ?? {};
+    changePassword(req.userId!, String(oldPassword ?? ""), String(newPassword ?? ""));
+    res.json({ ok: true });
+  } catch (e) {
+    sendError(res, e);
+  }
+});
+
+// --- Admin ---
+api.get("/admin/users", requireAdmin, (_req, res) => res.json(listUsers()));
+api.post("/admin/users", requireAdmin, (req, res) => {
+  try {
+    res.json(adminCreateUser(String(req.body?.username ?? "")));
+  } catch (e) {
+    sendError(res, e);
+  }
+});
+api.post("/admin/users/:id/reset-password", requireAdmin, (req, res) => {
+  try {
+    res.json(adminResetPassword(req.params.id));
+  } catch (e) {
+    sendError(res, e);
+  }
+});
 
 api.get("/activities", (req: AuthedRequest, res) =>
   res.json(repo.listActivities(req.userId!)),

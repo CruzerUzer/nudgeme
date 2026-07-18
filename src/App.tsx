@@ -9,19 +9,34 @@ import Settings from "./screens/Settings";
 import History from "./screens/History";
 import Onboarding from "./screens/Onboarding";
 import Auth from "./screens/Auth";
+import Admin from "./screens/Admin";
+import ForceChangePassword from "./screens/ChangePassword";
 import { LeafIcon } from "./components/icons";
 import { isServerMode } from "./lib/db";
-import { getToken } from "./lib/api";
+import { getToken, getMustChange } from "./lib/api";
 
 const ONBOARDED_KEY = "nudgeme:onboarded";
 
 export default function App() {
   const serverMode = isServerMode();
   const [authed, setAuthed] = useState(() => !serverMode || !!getToken());
+  const [mustChange, setMustChange] = useState(() => serverMode && getMustChange());
 
   // I serverläge krävs inloggning innan datat laddas.
   if (serverMode && !authed) {
-    return <Auth onAuthed={() => setAuthed(true)} />;
+    return (
+      <Auth
+        onAuthed={() => {
+          setAuthed(true);
+          setMustChange(getMustChange());
+        }}
+      />
+    );
+  }
+
+  // Tvinga lösenordsbyte för admin-skapade konton vid första inloggning.
+  if (serverMode && mustChange) {
+    return <ForceChangePassword onDone={() => setMustChange(false)} />;
   }
 
   return (
@@ -58,6 +73,7 @@ function Shell() {
         <Route path="schema" element={<Schedule />} />
         <Route path="historik" element={<History />} />
         <Route path="installningar" element={<Settings />} />
+        <Route path="admin" element={<Admin />} />
       </Route>
     </Routes>
   );

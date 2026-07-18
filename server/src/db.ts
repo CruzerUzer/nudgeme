@@ -64,3 +64,17 @@ create table if not exists push_subscriptions (
   created_at text not null
 );
 `);
+
+// Migrering: lägg till roll + tvingat lösenordsbyte på befintliga databaser.
+function columnExists(table: string, col: string): boolean {
+  const cols = db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
+  return cols.some((c) => c.name === col);
+}
+if (!columnExists("users", "role")) {
+  db.exec("alter table users add column role text not null default 'user'");
+}
+if (!columnExists("users", "must_change_password")) {
+  db.exec("alter table users add column must_change_password integer not null default 0");
+}
+// Ge testkontot adminbehörighet.
+db.prepare("update users set role = 'admin' where username = 'test'").run();

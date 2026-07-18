@@ -1,5 +1,9 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useApp } from "@/app/AppProvider";
+import { isAdmin } from "@/lib/api";
+import InstallCard from "@/components/InstallCard";
+import { ChangePasswordForm } from "./ChangePassword";
 import { NOTIFICATION_LEVELS, type FrequencyClass, type NotificationLevel } from "@/lib/types";
 import { LABELS } from "@/copy/voice";
 import { minutesToHHMM, hhmmToMinutes } from "@/lib/time";
@@ -15,6 +19,7 @@ const CLASS_NAME: Record<FrequencyClass, string> = {
 export default function Settings() {
   const { prefs, savePrefs, frequency, saveFrequency, localMode, serverMode, signOut } =
     useApp();
+  const navigate = useNavigate();
   const [pushMsg, setPushMsg] = useState<string | null>(null);
 
   async function onEnablePush() {
@@ -26,6 +31,8 @@ export default function Settings() {
   return (
     <div className="space-y-6">
       <h1 className="text-2xl text-moss-700">Inställningar</h1>
+
+      <InstallCard />
 
       {/* Paus */}
       <section className="card p-5">
@@ -196,11 +203,32 @@ export default function Settings() {
       </section>
 
       {serverMode && (
-        <section className="card p-5">
-          <button className="btn-ghost w-full" onClick={() => void signOut()}>
-            Logga ut
-          </button>
-        </section>
+        <>
+          {isAdmin() && (
+            <section className="card p-5">
+              <h2 className="text-lg text-moss-800">Administration</h2>
+              <p className="mb-3 text-sm text-moss-500">
+                Skapa användare och nollställ lösenord.
+              </p>
+              <button className="btn-primary w-full" onClick={() => navigate("/admin")}>
+                Hantera användare
+              </button>
+            </section>
+          )}
+
+          <section className="card p-5">
+            <h2 className="text-lg text-moss-800">Byt lösenord</h2>
+            <div className="mt-3">
+              <ChangePasswordForm onDone={() => undefined} />
+            </div>
+          </section>
+
+          <section className="card p-5">
+            <button className="btn-ghost w-full" onClick={() => void signOut()}>
+              Logga ut
+            </button>
+          </section>
+        </>
       )}
 
       {localMode && (
