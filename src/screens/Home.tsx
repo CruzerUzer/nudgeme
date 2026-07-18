@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react";
 import { useApp } from "@/app/AppProvider";
 import {
-  NUDGE_INVITATIONS,
   DONE_CHEERS,
   FOLLOWUP_PROMPTS,
   LABELS,
@@ -16,11 +15,6 @@ export default function Home() {
   const [cheer, setCheer] = useState<string | null>(null);
   const [surprise, setSurprise] = useState<Activity | null>(null);
 
-  // Stabil invitation-text per nudge (byts inte vid varje render).
-  const invitation = useMemo(
-    () => pick(NUDGE_INVITATIONS),
-    [current?.record.id],
-  );
   const followUpText = useMemo(() => pick(FOLLOWUP_PROMPTS), [current?.record.id]);
 
   async function act(fn: () => Promise<void>, celebrate = false) {
@@ -62,7 +56,6 @@ export default function Home() {
           />
         ) : (
           <NudgeCard
-            invitation={invitation}
             activity={current.activity}
             committed={current.record.status === "committed"}
             onAck={() => act(() => service.ack(current.record.id))}
@@ -114,7 +107,6 @@ function ActivityImage({ src, alt }: { src: string; alt: string }) {
 }
 
 function NudgeCard({
-  invitation,
   activity,
   committed,
   onAck,
@@ -122,7 +114,6 @@ function NudgeCard({
   onDone,
   onSnooze,
 }: {
-  invitation: string;
   activity: Activity;
   committed: boolean;
   onAck: () => void;
@@ -132,7 +123,6 @@ function NudgeCard({
 }) {
   return (
     <section className="card overflow-hidden p-6">
-      <p className="mb-2 font-display text-lg italic text-gold-700">{invitation}</p>
       <h2 className="text-2xl leading-snug text-moss-900">{activity.title}</h2>
       {activity.imageUrl && (
         <ActivityImage src={activity.imageUrl} alt={activity.title} />

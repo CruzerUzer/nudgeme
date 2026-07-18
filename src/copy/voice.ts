@@ -6,17 +6,6 @@ export function pick<T>(arr: readonly T[], rnd: () => number = Math.random): T {
   return arr[Math.floor(rnd() * arr.length)];
 }
 
-/** Inbjudningar som visas när en ny nudge dyker upp. */
-export const NUDGE_INVITATIONS = [
-  "Psst… en liten idé har landat.",
-  "Om du känner för det – här är en tanke.",
-  "En fjäril viskade just något åt dig.",
-  "Skogen föreslår försiktigt…",
-  "Ingen brådska, men vad sägs om detta?",
-  "En vänlig knuff, inte en spark:",
-  "Din framtida jag skickade en hälsning:",
-] as const;
-
 /** Bekräftelse när något markeras som genomfört. Fira, aldrig kräva. */
 export const DONE_CHEERS = [
   "Där satt den! ✨",
