@@ -54,14 +54,22 @@ synk mellan enheter, helt självdriven utan extern BaaS.
 # 1. Starta servern (port allokeras via Helm: helmctl port claim nudgeme-server)
 cd server && npm install && PORT=4303 npm start
 
-# 2. Peka appen mot servern och starta frontend
-cd .. && VITE_API_URL=http://localhost:4303 npm run dev
+# 2. Starta frontend i server-läge. Vite proxar /api till servern (samma
+#    origin), så det funkar via localhost, LAN-IP och Tailscale utan hårdkodad
+#    värd. Backend antas på http://localhost:4303 (ändra med API_PROXY).
+cd .. && VITE_SERVER_MODE=1 npm run dev
 ```
 
 Då visar appen en inloggnings-/registreringsvy. Varje konto får egna seedade
 aktiviteter och en välkomstnudge direkt. Datakällan väljs i
-`src/lib/db/index.ts`: `VITE_API_URL` satt → `LocalServerStore` (server), annars
-`LocalStore` (webbläsarlokalt).
+`src/lib/db/index.ts`: server-läge (`VITE_SERVER_MODE=1` eller en absolut
+`VITE_API_URL`) → `LocalServerStore`, annars `LocalStore` (webbläsarlokalt).
+
+- **`VITE_SERVER_MODE=1`** (rekommenderat i dev): klienten pratar relativt mot
+  `/api` på samma origin, som Vite proxar till servern. Ingen Tailscale krävs
+  för LAN-test.
+- **`VITE_API_URL=https://…`**: absolut adress när frontend och server ligger på
+  olika värdar (måste vara nåbar från klienten).
 
 Serverns miljövariabler (kopiera `server/.env.example` → `server/.env`):
 `JWT_SECRET` (sätt ett eget i produktion!), `PORT`, `NUDGEME_DB` (sökväg till

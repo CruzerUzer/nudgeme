@@ -9,7 +9,11 @@ import { LocalServerStore } from "./localServer";
 let store: DataStore | null = null;
 
 export function isServerMode(): boolean {
-  return !!import.meta.env.VITE_API_URL;
+  // Server-läge antingen via explicit VITE_SERVER_MODE=1 (då pratar klienten
+  // relativt mot /api på samma origin) eller via en absolut VITE_API_URL.
+  return (
+    import.meta.env.VITE_SERVER_MODE === "1" || !!import.meta.env.VITE_API_URL
+  );
 }
 
 export function getStore(): DataStore {

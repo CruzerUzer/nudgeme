@@ -47,6 +47,15 @@ export default defineConfig({
     host: true, // lyssna på alla nätverksgränssnitt (LAN + Tailscale)
     // Tillåt åtkomst via Tailscale MagicDNS-namn (*.ts.net), inte bara IP.
     allowedHosts: [".ts.net"],
+    // Proxa /api till den lokala servern. Då pratar klienten med API:t på
+    // SAMMA origin som den nådde frontend på (localhost, LAN-IP eller Tailscale)
+    // – ingen hårdkodad värd, ingen Tailscale-tvång för LAN-test.
+    proxy: {
+      "/api": {
+        target: process.env.API_PROXY ?? "http://localhost:4303",
+        changeOrigin: true,
+      },
+    },
   },
   test: {
     environment: "node",
