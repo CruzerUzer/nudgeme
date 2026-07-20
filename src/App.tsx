@@ -13,7 +13,7 @@ import Admin from "./screens/Admin";
 import BackgroundAdmin from "./screens/BackgroundAdmin";
 import ForceChangePassword from "./screens/ChangePassword";
 import Background from "./components/Background";
-import { LeafIcon } from "./components/icons";
+import BrandMark from "./components/BrandMark";
 import { isServerMode } from "./lib/db";
 import { getToken, getMustChange } from "./lib/api";
 
@@ -88,9 +88,7 @@ function Shell() {
 function Splash() {
   return (
     <div className="flex min-h-full items-center justify-center">
-      <span className="animate-gentle-float text-moss-600">
-        <LeafIcon className="h-14 w-14" />
-      </span>
+      <BrandMark className="h-14 w-14" />
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { LeafIcon } from "@/components/icons";
+import BrandMark from "@/components/BrandMark";
 import PasswordInput from "@/components/PasswordInput";
 import { changePassword } from "@/lib/serverAuth";
 
@@ -70,9 +70,7 @@ export default function ForceChangePassword({ onDone }: { onDone: () => void }) 
   return (
     <div className="mx-auto flex min-h-full max-w-md flex-col justify-center px-6">
       <div className="mb-8 flex flex-col items-center text-center">
-        <span className="animate-gentle-float text-moss-600">
-          <LeafIcon className="h-14 w-14" />
-        </span>
+        <BrandMark className="h-14 w-14" />
         <h1 className="mt-3 font-display text-3xl text-moss-700">Välj ett eget lösenord</h1>
         <p className="mt-1 text-moss-500">
           Ditt konto skapades med ett tillfälligt lösenord. Byt det för att fortsätta.

@@ -1,7 +1,8 @@
-import { useState } from "react";
-import { LeafIcon } from "@/components/icons";
+import { useEffect, useState } from "react";
+import BrandMark from "@/components/BrandMark";
 import PasswordInput from "@/components/PasswordInput";
 import { registerUser, loginUser } from "@/lib/serverAuth";
+import { getLoginBackground } from "@/lib/backgrounds";
 
 // Inloggning/registrering för serverläge (användarnamn + lösenord).
 export default function Auth({ onAuthed }: { onAuthed: () => void }) {
@@ -10,6 +11,11 @@ export default function Auth({ onAuthed }: { onAuthed: () => void }) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [bg, setBg] = useState<string | null>(null);
+
+  useEffect(() => {
+    void getLoginBackground().then(setBg);
+  }, []);
 
   const isRegister = mode === "register";
 
@@ -29,11 +35,19 @@ export default function Auth({ onAuthed }: { onAuthed: () => void }) {
   }
 
   return (
-    <div className="mx-auto flex min-h-full max-w-md flex-col justify-center px-6">
+    <>
+      {bg && (
+        <div aria-hidden className="pointer-events-none fixed inset-0 -z-10">
+          <div
+            className="absolute inset-0 bg-cover bg-center"
+            style={{ backgroundImage: `url("${bg}")` }}
+          />
+          <div className="absolute inset-0 bg-parchment-100/60 backdrop-blur-[1px]" />
+        </div>
+      )}
+      <div className="mx-auto flex min-h-full max-w-md flex-col justify-center px-6">
       <div className="mb-8 flex flex-col items-center text-center">
-        <span className="animate-gentle-float text-moss-600">
-          <LeafIcon className="h-14 w-14" />
-        </span>
+        <BrandMark className="h-14 w-14" />
         <h1 className="mt-3 font-display text-3xl text-moss-700">NudgeMe</h1>
         <p className="mt-1 text-moss-500">
           {isRegister ? "Skapa ett konto och kom igång." : "Välkommen tillbaka."}
@@ -81,6 +95,7 @@ export default function Auth({ onAuthed }: { onAuthed: () => void }) {
       >
         {isRegister ? "Har du redan ett konto? Logga in" : "Ny här? Skapa ett konto"}
       </button>
-    </div>
+      </div>
+    </>
   );
 }

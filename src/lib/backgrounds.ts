@@ -16,6 +16,7 @@ export interface BgPack {
 }
 
 export const BG_SCREENS = [
+  { key: "login", label: "Inloggning" },
   { key: "home", label: "Hem" },
   { key: "activities", label: "Aktiviteter" },
   { key: "schedule", label: "Schema" },
@@ -25,6 +26,18 @@ export const BG_SCREENS = [
 
 export function bgUrl(url: string): string {
   return `${apiBase()}${url}`;
+}
+
+/** App-övergripande inloggningsbakgrund (publik, pre-auth). Null om ingen. */
+export async function getLoginBackground(): Promise<string | null> {
+  try {
+    const res = await fetch(`${apiBase()}/api/backgrounds/login-background`);
+    if (!res.ok) return null;
+    const { url } = (await res.json()) as { url: string | null };
+    return url ? bgUrl(url) : null;
+  } catch {
+    return null;
+  }
 }
 
 export function listPacks() {

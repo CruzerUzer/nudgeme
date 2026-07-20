@@ -23,7 +23,14 @@ const UPLOAD_DIR =
   process.env.NUDGEME_UPLOADS ?? join(here, "..", "data", "uploads", "backgrounds");
 mkdirSync(UPLOAD_DIR, { recursive: true });
 
-export const SCREENS = ["home", "activities", "schedule", "history", "settings"] as const;
+export const SCREENS = [
+  "login",
+  "home",
+  "activities",
+  "schedule",
+  "history",
+  "settings",
+] as const;
 export type Screen = (typeof SCREENS)[number];
 
 const MIME: Record<string, string> = {
@@ -87,6 +94,24 @@ export function listPacks() {
       .filter((i) => i.pack_id === p.id)
       .map((i) => ({ screen: i.screen, url: `/api/backgrounds/image/${i.id}` })),
   }));
+}
+
+/**
+ * Inloggningsskärmens bakgrund är app-övergripande (pre-auth, ingen användare
+ * har valt paket ännu). Vi tar login-bilden från första paketet som har en,
+ * med medföljande paket först.
+ */
+export function loginBackgroundUrl(): string | null {
+  const row = db
+    .prepare(
+      `select i.id from background_images i
+       join background_packs p on p.id = i.pack_id
+       where i.screen = 'login'
+       order by p.builtin desc, p.name
+       limit 1`,
+    )
+    .get() as { id: string } | undefined;
+  return row ? `/api/backgrounds/image/${row.id}` : null;
 }
 
 export function getImageFile(id: string): { path: string; mime: string } | null {

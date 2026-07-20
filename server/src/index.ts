@@ -152,6 +152,11 @@ app.get("/api/backgrounds/image/:id", (req, res) => {
   res.send(readFileSync(file.path));
 });
 
+// Inloggningsbakgrunden är app-övergripande och hämtas PUBLIKT (pre-auth).
+app.get("/api/backgrounds/login-background", (_req, res) => {
+  res.json({ url: bg.loginBackgroundUrl() });
+});
+
 app.use("/api", api);
 
 app.get("/health", (_req, res) => res.json({ ok: true }));

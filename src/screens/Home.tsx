@@ -7,7 +7,8 @@ import {
   PAUSED_MESSAGE,
   pick,
 } from "@/copy/voice";
-import { LeafIcon, SparkleIcon } from "@/components/icons";
+import { SparkleIcon } from "@/components/icons";
+import BrandMark from "@/components/BrandMark";
 import type { Activity } from "@/lib/types";
 
 export default function Home() {
@@ -86,9 +87,7 @@ export default function Home() {
 function Header() {
   return (
     <header className="flex items-center gap-3">
-      <span className="animate-gentle-float text-moss-600">
-        <LeafIcon className="h-9 w-9" />
-      </span>
+      <BrandMark className="h-9 w-9" />
       <h1 className="text-3xl leading-tight text-moss-700">NudgeMe</h1>
     </header>
   );

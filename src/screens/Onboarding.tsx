@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { LeafIcon } from "@/components/icons";
+import BrandMark from "@/components/BrandMark";
 import { isStandalone } from "@/lib/push";
 
 const STEPS = [
@@ -24,9 +24,7 @@ export default function Onboarding({ onDone }: { onDone: () => void }) {
 
   return (
     <div className="fixed inset-0 z-40 flex flex-col items-center justify-center bg-parchment-100 px-6 text-center">
-      <span className="animate-gentle-float mb-6 text-moss-600">
-        <LeafIcon className="h-16 w-16" />
-      </span>
+      <BrandMark className="mb-6 h-16 w-16" />
       <h1 className="font-display text-3xl text-moss-700">{STEPS[step].title}</h1>
       <p className="mt-3 max-w-sm text-moss-600">{STEPS[step].body}</p>
 
