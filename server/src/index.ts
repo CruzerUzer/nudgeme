@@ -17,6 +17,8 @@ import {
 } from "./auth.js";
 import { repo } from "./repo.js";
 import { initUserEngine, startEngine } from "./engine.js";
+import * as bg from "./backgrounds.js";
+import { readFileSync } from "node:fs";
 import {
   DEFAULT_FREQUENCY,
   DEFAULT_NOTIFICATION_PREFS,
@@ -108,6 +110,7 @@ for (const [path, key] of [
   ["schedule", "schedule"],
   ["notification-prefs", "notifPrefs"],
   ["engine", "engine"],
+  ["background-pack", "backgroundPack"],
 ] as const) {
   api.get(`/${path}`, (req: AuthedRequest, res) =>
     res.json(repo.getKv(req.userId!, key, defaultFor(key))),
@@ -138,9 +141,47 @@ api.post("/push-subscriptions", (req: AuthedRequest, res) => {
   res.json({ ok: true });
 });
 
+// Rå bildhämtning är PUBLIK (utan token) – CSS/<img> kan inte skicka Bearer.
+// Måste registreras FÖRE api-routern (som annars kräver auth). Bilderna är
+// delad biblioteks-konst, inte känslig data.
+app.get("/api/backgrounds/image/:id", (req, res) => {
+  const file = bg.getImageFile(req.params.id);
+  if (!file) return res.status(404).end();
+  res.setHeader("Content-Type", file.mime);
+  res.setHeader("Cache-Control", "public, max-age=86400");
+  res.send(readFileSync(file.path));
+});
+
 app.use("/api", api);
 
 app.get("/health", (_req, res) => res.json({ ok: true }));
+
+// Inloggade: lista paket. Admin: skapa/ladda upp/ta bort.
+api.get("/backgrounds/packs", (_req, res) => res.json(bg.listPacks()));
+api.post("/admin/backgrounds/packs", requireAdmin, (req, res) => {
+  try {
+    res.json(bg.createPack(String(req.body?.name ?? "")));
+  } catch (e) {
+    sendError(res, e);
+  }
+});
+api.post(
+  "/admin/backgrounds/packs/:id/image",
+  requireAdmin,
+  bg.upload.single("image"),
+  async (req, res) => {
+    try {
+      if (!req.file) throw new HttpError(400, "Ingen bild.");
+      res.json(await bg.addImage(req.params.id, String(req.body?.screen ?? ""), req.file.buffer));
+    } catch (e) {
+      sendError(res, e);
+    }
+  },
+);
+api.delete("/admin/backgrounds/packs/:id", requireAdmin, (req, res) => {
+  bg.deletePack(req.params.id);
+  res.json({ ok: true });
+});
 
 function defaultFor(key: string) {
   switch (key) {
@@ -152,6 +193,8 @@ function defaultFor(key: string) {
       return DEFAULT_NOTIFICATION_PREFS;
     case "engine":
       return { nextNudgeAt: null };
+    case "backgroundPack":
+      return { packId: null };
     default:
       return null;
   }
@@ -165,5 +208,6 @@ function sendError(res: express.Response, e: unknown) {
 
 app.listen(PORT, () => {
   console.log(`NudgeMe-server lyssnar på http://localhost:${PORT}`);
+  bg.seedBuiltinPacks();
   startEngine();
 });

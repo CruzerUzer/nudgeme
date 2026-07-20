@@ -10,6 +10,7 @@ import type { ReactNode } from "react";
 import { getStore, isLocalMode, isServerMode } from "@/lib/db";
 import { NudgeService, type NudgeView } from "@/lib/nudge/service";
 import { nextNudgeTimestamp } from "@/lib/nudge/schedule";
+import { listPacks, getSelectedPack, bgUrl } from "@/lib/backgrounds";
 import type {
   Activity,
   DaySchedule,
@@ -23,6 +24,8 @@ interface AppState {
   localMode: boolean;
   serverMode: boolean;
   signOut: () => Promise<void>;
+  /** Vald bakgrundsbild per skärm (screen-nyckel -> url). Tom om ingen valts. */
+  backgroundImages: Record<string, string>;
   service: NudgeService;
   current: NudgeView | null;
   activities: Activity[];
@@ -51,6 +54,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [schedule, setSchedule] = useState<DaySchedule[]>([]);
   const [prefs, setPrefs] = useState<NotificationPrefs | null>(null);
   const [history, setHistory] = useState<NudgeRecord[]>([]);
+  const [backgroundImages, setBackgroundImages] = useState<Record<string, string>>({});
 
   const reload = useCallback(async () => {
     // I serverläge äger servern genereringen — klienten läser bara aktuell
@@ -71,6 +75,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setSchedule(sched);
     setPrefs(np);
     setHistory(hist);
+
+    // Bakgrundsbilder (server-läge, icke-kritiskt).
+    let bgImages: Record<string, string> = {};
+    if (isServerMode()) {
+      try {
+        const [packs, sel] = await Promise.all([listPacks(), getSelectedPack()]);
+        const pack = packs.find((p) => p.id === sel.packId);
+        if (pack) {
+          for (const img of pack.images) bgImages[img.screen] = bgUrl(img.url);
+        }
+      } catch {
+        /* bakgrunder ska aldrig blockera appen */
+      }
+    }
+    setBackgroundImages(bgImages);
   }, [service, store]);
 
   useEffect(() => {
@@ -100,6 +119,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       await store.signOut();
       window.location.reload();
     },
+    backgroundImages,
     service,
     current,
     activities,

@@ -10,7 +10,9 @@ import History from "./screens/History";
 import Onboarding from "./screens/Onboarding";
 import Auth from "./screens/Auth";
 import Admin from "./screens/Admin";
+import BackgroundAdmin from "./screens/BackgroundAdmin";
 import ForceChangePassword from "./screens/ChangePassword";
+import Background from "./components/Background";
 import { LeafIcon } from "./components/icons";
 import { isServerMode } from "./lib/db";
 import { getToken, getMustChange } from "./lib/api";
@@ -66,16 +68,20 @@ function Shell() {
   }
 
   return (
-    <Routes>
-      <Route element={<Layout />}>
-        <Route index element={<Home />} />
-        <Route path="aktiviteter" element={<Activities />} />
-        <Route path="schema" element={<Schedule />} />
-        <Route path="historik" element={<History />} />
-        <Route path="installningar" element={<Settings />} />
-        <Route path="admin" element={<Admin />} />
-      </Route>
-    </Routes>
+    <>
+      <Background />
+      <Routes>
+        <Route element={<Layout />}>
+          <Route index element={<Home />} />
+          <Route path="aktiviteter" element={<Activities />} />
+          <Route path="schema" element={<Schedule />} />
+          <Route path="historik" element={<History />} />
+          <Route path="installningar" element={<Settings />} />
+          <Route path="admin" element={<Admin />} />
+          <Route path="bakgrunder" element={<BackgroundAdmin />} />
+        </Route>
+      </Routes>
+    </>
   );
 }
 

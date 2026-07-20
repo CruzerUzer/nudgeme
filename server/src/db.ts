@@ -63,6 +63,23 @@ create table if not exists push_subscriptions (
   keys text not null,
   created_at text not null
 );
+
+-- Bakgrundsbilder: ett "paket" har en bild per skärm. Delat bibliotek som
+-- admin bygger; användaren väljer ett paket (kv-nyckel 'backgroundPack').
+create table if not exists background_packs (
+  id text primary key,
+  name text not null,
+  builtin integer not null default 0,
+  created_at text not null
+);
+create table if not exists background_images (
+  id text primary key,
+  pack_id text not null references background_packs(id) on delete cascade,
+  screen text not null,
+  path text not null,
+  mime text not null default 'image/webp',
+  unique (pack_id, screen)
+);
 `);
 
 // Migrering: lägg till roll + tvingat lösenordsbyte på befintliga databaser.

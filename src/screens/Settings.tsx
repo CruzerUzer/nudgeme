@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useApp } from "@/app/AppProvider";
 import { isAdmin } from "@/lib/api";
 import InstallCard from "@/components/InstallCard";
+import BackgroundPicker from "@/components/BackgroundPicker";
 import { ChangePasswordForm } from "./ChangePassword";
 import { NOTIFICATION_LEVELS, type FrequencyClass, type NotificationLevel } from "@/lib/types";
 import { LABELS } from "@/copy/voice";
@@ -204,14 +205,28 @@ export default function Settings() {
 
       {serverMode && (
         <>
+          <section className="card p-5">
+            <h2 className="text-lg text-moss-800">Bakgrund</h2>
+            <p className="mb-3 text-sm text-moss-500">
+              Välj ett bildpaket. Olika bild på varje skärm.
+            </p>
+            <BackgroundPicker />
+          </section>
+
           {isAdmin() && (
-            <section className="card p-5">
+            <section className="card space-y-2 p-5">
               <h2 className="text-lg text-moss-800">Administration</h2>
-              <p className="mb-3 text-sm text-moss-500">
-                Skapa användare och nollställ lösenord.
+              <p className="text-sm text-moss-500">
+                Skapa användare, nollställ lösenord och bygg bildpaket.
               </p>
               <button className="btn-primary w-full" onClick={() => navigate("/admin")}>
                 Hantera användare
+              </button>
+              <button
+                className="btn-ghost w-full"
+                onClick={() => navigate("/bakgrunder")}
+              >
+                Hantera bakgrunder
               </button>
             </section>
           )}
