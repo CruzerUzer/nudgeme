@@ -12,7 +12,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: "autoUpdate",
-      includeAssets: ["favicon.svg"],
+      includeAssets: ["favicon.png"],
       // Lägg till vår push-/klick-hanterare i den genererade service workern.
       workbox: { importScripts: ["push-handler.js"] },
       manifest: {
