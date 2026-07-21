@@ -31,9 +31,21 @@ self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const url = (event.notification.data && event.notification.data.url) || "/";
   event.waitUntil(
-    clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
+    clients.matchAll({ type: "window", includeUncontrolled: true }).then(async (list) => {
+      // Fokusera befintligt fönster och navigera till hemskärmen så aktiviteten
+      // visas. Öppna annars ett nytt fönster på hemskärmen.
       for (const client of list) {
-        if ("focus" in client) return client.focus();
+        if ("focus" in client) {
+          await client.focus();
+          if ("navigate" in client) {
+            try {
+              await client.navigate(url);
+            } catch (_e) {
+              /* navigate kan nekas i vissa lägen – fokus räcker då */
+            }
+          }
+          return;
+        }
       }
       return clients.openWindow(url);
     }),

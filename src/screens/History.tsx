@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useApp } from "@/app/AppProvider";
 import { EMPTY_HISTORY, pick } from "@/copy/voice";
@@ -28,8 +29,11 @@ export default function History() {
     activities.find((a) => a.id === id)?.title ?? "En bortglömd aktivitet";
 
   const doneCount = history.filter((h) => h.status === "done").length;
-  // Rendera bara de senaste posterna – annars blir listan seg vid tät historik.
-  const shown = history.slice(0, 150);
+  // Visa 50 i taget. Nollställs till 50 varje gång vyn öppnas (komponenten
+  // monteras om vid navigering), enligt önskemål.
+  const PAGE = 50;
+  const [limit, setLimit] = useState(PAGE);
+  const shown = history.slice(0, limit);
 
   // Ångra en snooze: ta fram kortet på Hem (som committed), inte klarmarkera.
   async function reviveSnoozed(id: string) {
@@ -82,9 +86,12 @@ export default function History() {
       )}
 
       {history.length > shown.length && (
-        <p className="pt-1 text-center text-xs text-moss-400">
-          Visar de {shown.length} senaste.
-        </p>
+        <button
+          className="btn-ghost w-full"
+          onClick={() => setLimit((l) => l + PAGE)}
+        >
+          Visa nästa {Math.min(PAGE, history.length - shown.length)}
+        </button>
       )}
     </div>
   );
