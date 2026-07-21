@@ -65,3 +65,39 @@ export function adminResetPassword(id: string) {
     { method: "POST" },
   );
 }
+
+export function adminSetRole(id: string, role: "user" | "admin") {
+  return apiFetch(`/api/admin/users/${id}/role`, {
+    method: "POST",
+    body: JSON.stringify({ role }),
+  });
+}
+
+export function adminRenameUser(id: string, username: string) {
+  return apiFetch<{ id: string; username: string }>(`/api/admin/users/${id}/rename`, {
+    method: "POST",
+    body: JSON.stringify({ username }),
+  });
+}
+
+export function adminDeleteUser(id: string) {
+  return apiFetch(`/api/admin/users/${id}`, { method: "DELETE" });
+}
+
+export function adminSetRegistration(open: boolean) {
+  return apiFetch<{ open: boolean }>("/api/admin/registration", {
+    method: "PUT",
+    body: JSON.stringify({ open }),
+  });
+}
+
+/** Publik (pre-auth): får nya registrera sig? */
+export async function getRegistrationOpen(): Promise<boolean> {
+  try {
+    const res = await fetch(`${apiBase()}/api/registration-status`);
+    if (!res.ok) return true;
+    return !!(await res.json()).open;
+  } catch {
+    return true;
+  }
+}

@@ -91,8 +91,36 @@ interface Session {
   mustChangePassword: boolean;
 }
 
+/** Är självregistrering tillåten? (global inställning, default på) */
+export function isRegistrationOpen(): boolean {
+  const row = db
+    .prepare("select value from app_settings where key = 'registration_open'")
+    .get() as { value: string } | undefined;
+  return row ? row.value === "1" : true;
+}
+
+export function setRegistrationOpen(open: boolean) {
+  db.prepare(
+    `insert into app_settings (key, value) values ('registration_open', ?)
+     on conflict(key) do update set value = excluded.value`,
+  ).run(open ? "1" : "0");
+}
+
+function countUsers(): number {
+  return (db.prepare("select count(*) c from users").get() as { c: number }).c;
+}
+function countAdmins(): number {
+  return (
+    db.prepare("select count(*) c from users where role = 'admin'").get() as { c: number }
+  ).c;
+}
+
 /** Självregistrering. Testkontot blir admin. */
 export function register(username: string, password: string): Session {
+  // Blockera om registrering är avstängd (men tillåt allra första kontot).
+  if (!isRegistrationOpen() && countUsers() > 0) {
+    throw new HttpError(403, "Registrering är avstängd.");
+  }
   const uname = normalize(username);
   const role = uname === "test" ? "admin" : "user";
   const id = createUser(username, password, role, false);
@@ -154,6 +182,45 @@ export function changePassword(userId: string, oldPassword: string, newPassword:
 export function adminCreateUser(username: string) {
   const id = createUser(username, DEFAULT_PASSWORD, "user", true);
   return { id, username: normalize(username), defaultPassword: DEFAULT_PASSWORD };
+}
+
+export function setRole(targetUserId: string, role: "user" | "admin") {
+  if (role !== "user" && role !== "admin") throw new HttpError(400, "Ogiltig roll.");
+  const target = db.prepare("select role from users where id = ?").get(targetUserId) as
+    | { role: string }
+    | undefined;
+  if (!target) throw new HttpError(404, "Användaren finns inte.");
+  // Får inte ta bort sista admin.
+  if (target.role === "admin" && role === "user" && countAdmins() <= 1) {
+    throw new HttpError(400, "Kan inte ta bort den sista adminen.");
+  }
+  db.prepare("update users set role = ? where id = ?").run(role, targetUserId);
+}
+
+export function renameUser(targetUserId: string, newUsername: string) {
+  const uname = normalize(newUsername);
+  if (uname.length < 2) throw new HttpError(400, "Användarnamnet är för kort.");
+  if (!db.prepare("select 1 from users where id = ?").get(targetUserId))
+    throw new HttpError(404, "Användaren finns inte.");
+  const taken = db
+    .prepare("select 1 from users where username = ? and id <> ?")
+    .get(uname, targetUserId);
+  if (taken) throw new HttpError(409, "Användarnamnet är upptaget.");
+  db.prepare("update users set username = ? where id = ?").run(uname, targetUserId);
+  return { id: targetUserId, username: uname };
+}
+
+export function deleteUser(actingUserId: string, targetUserId: string) {
+  if (actingUserId === targetUserId)
+    throw new HttpError(400, "Du kan inte ta bort dig själv.");
+  const target = db.prepare("select role from users where id = ?").get(targetUserId) as
+    | { role: string }
+    | undefined;
+  if (!target) return;
+  if (target.role === "admin" && countAdmins() <= 1) {
+    throw new HttpError(400, "Kan inte ta bort den sista adminen.");
+  }
+  db.prepare("delete from users where id = ?").run(targetUserId); // cascade tar bort data
 }
 
 export function adminResetPassword(targetUserId: string) {

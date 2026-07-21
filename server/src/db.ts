@@ -80,6 +80,12 @@ create table if not exists background_images (
   mime text not null default 'image/webp',
   unique (pack_id, screen)
 );
+
+-- Globala app-inställningar (t.ex. om nya får registrera sig).
+create table if not exists app_settings (
+  key text primary key,
+  value text not null
+);
 `);
 
 // Migrering: lägg till roll + tvingat lösenordsbyte på befintliga databaser.

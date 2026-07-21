@@ -12,6 +12,11 @@ import {
   adminCreateUser,
   adminResetPassword,
   listUsers,
+  setRole,
+  renameUser,
+  deleteUser,
+  isRegistrationOpen,
+  setRegistrationOpen,
   HttpError,
   type AuthedRequest,
 } from "./auth.js";
@@ -53,6 +58,11 @@ app.post("/api/auth/login", (req, res) => {
   }
 });
 
+// Publikt: får nya registrera sig? (för att dölja "skapa konto" på login)
+app.get("/api/registration-status", (_req, res) =>
+  res.json({ open: isRegistrationOpen() }),
+);
+
 // --- Allt nedan kräver inloggning ---
 const api = express.Router();
 api.use(requireAuth);
@@ -90,6 +100,33 @@ api.post("/admin/users/:id/reset-password", requireAdmin, (req, res) => {
   } catch (e) {
     sendError(res, e);
   }
+});
+api.post("/admin/users/:id/role", requireAdmin, (req, res) => {
+  try {
+    setRole(req.params.id, req.body?.role === "admin" ? "admin" : "user");
+    res.json({ ok: true });
+  } catch (e) {
+    sendError(res, e);
+  }
+});
+api.post("/admin/users/:id/rename", requireAdmin, (req, res) => {
+  try {
+    res.json(renameUser(req.params.id, String(req.body?.username ?? "")));
+  } catch (e) {
+    sendError(res, e);
+  }
+});
+api.delete("/admin/users/:id", requireAdmin, (req: AuthedRequest, res) => {
+  try {
+    deleteUser(req.userId!, req.params.id);
+    res.json({ ok: true });
+  } catch (e) {
+    sendError(res, e);
+  }
+});
+api.put("/admin/registration", requireAdmin, (req, res) => {
+  setRegistrationOpen(req.body?.open === true);
+  res.json({ ok: true, open: isRegistrationOpen() });
 });
 
 api.get("/activities", (req: AuthedRequest, res) =>

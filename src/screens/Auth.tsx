@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import BrandMark from "@/components/BrandMark";
 import PasswordInput from "@/components/PasswordInput";
-import { registerUser, loginUser } from "@/lib/serverAuth";
+import { registerUser, loginUser, getRegistrationOpen } from "@/lib/serverAuth";
 import { getLoginBackground } from "@/lib/backgrounds";
 
 // Inloggning/registrering för serverläge (användarnamn + lösenord).
@@ -12,12 +12,17 @@ export default function Auth({ onAuthed }: { onAuthed: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [bg, setBg] = useState<string | null>(null);
+  const [regOpen, setRegOpen] = useState(true);
 
   useEffect(() => {
     void getLoginBackground().then(setBg);
+    void getRegistrationOpen().then((open) => {
+      setRegOpen(open);
+      if (!open) setMode("login");
+    });
   }, []);
 
-  const isRegister = mode === "register";
+  const isRegister = mode === "register" && regOpen;
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -86,15 +91,17 @@ export default function Auth({ onAuthed }: { onAuthed: () => void }) {
         </button>
       </form>
 
-      <button
-        className="btn-ghost mx-auto mt-4"
-        onClick={() => {
-          setError(null);
-          setMode(isRegister ? "login" : "register");
-        }}
-      >
-        {isRegister ? "Har du redan ett konto? Logga in" : "Ny här? Skapa ett konto"}
-      </button>
+      {regOpen && (
+        <button
+          className="btn-ghost mx-auto mt-4"
+          onClick={() => {
+            setError(null);
+            setMode(isRegister ? "login" : "register");
+          }}
+        >
+          {isRegister ? "Har du redan ett konto? Logga in" : "Ny här? Skapa ett konto"}
+        </button>
+      )}
       </div>
     </>
   );
