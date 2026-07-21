@@ -94,25 +94,31 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setBackgroundImages(bgImages);
   }, [service, store]);
 
-  useEffect(() => {
+    // Skicka enhetens tidszon så schema/notiser räknas i användarens lokala tid.
+    // Följer enheten – körs vid start OCH när appen får fokus (t.ex. efter resa).
+    const syncTimeZone = () => {
+      if (!isServerMode()) return;
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      if (tz) {
+        void apiFetch("/api/timezone", {
+          method: "PUT",
+          body: JSON.stringify({ tz }),
+        }).catch(() => undefined);
+      }
+    };
+
     void (async () => {
       await reload();
       setLoading(false);
       // Koppla enhetens push-prenumeration till den inloggade användaren.
       void syncPush();
-      // Skicka enhetens tidszon så schema/notiser räknas i användarens lokala tid.
-      if (isServerMode()) {
-        const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-        if (tz) {
-          void apiFetch("/api/timezone", {
-            method: "PUT",
-            body: JSON.stringify({ tz }),
-          }).catch(() => undefined);
-        }
-      }
+      syncTimeZone();
     })();
-    // Kör om när fliken får fokus igen (som en riktig påminnelseapp).
-    const onFocus = () => void reload();
+    // Kör om + synka tidszon när fliken får fokus igen (som en riktig påminnelseapp).
+    const onFocus = () => {
+      void reload();
+      syncTimeZone();
+    };
     window.addEventListener("focus", onFocus);
     document.addEventListener("visibilitychange", onFocus);
     // Poll så att nya aktiviteter dyker upp av sig själva (servern genererar
