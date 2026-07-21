@@ -28,6 +28,8 @@ export default function History() {
     activities.find((a) => a.id === id)?.title ?? "En bortglömd aktivitet";
 
   const doneCount = history.filter((h) => h.status === "done").length;
+  // Rendera bara de senaste posterna – annars blir listan seg vid tät historik.
+  const shown = history.slice(0, 150);
 
   // Ångra en snooze: ta fram kortet på Hem (som committed), inte klarmarkera.
   async function reviveSnoozed(id: string) {
@@ -51,7 +53,7 @@ export default function History() {
         <p className="card p-6 text-center text-moss-600">{pick(EMPTY_HISTORY)}</p>
       ) : (
         <ul className="space-y-3">
-          {history.map((h) => {
+          {shown.map((h) => {
             const meta = STATUS_META[h.status];
             const revivable = h.status === "snoozed";
             return (
@@ -77,6 +79,12 @@ export default function History() {
             );
           })}
         </ul>
+      )}
+
+      {history.length > shown.length && (
+        <p className="pt-1 text-center text-xs text-moss-400">
+          Visar de {shown.length} senaste.
+        </p>
       )}
     </div>
   );

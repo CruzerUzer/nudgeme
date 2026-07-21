@@ -108,9 +108,12 @@ export const repo = {
   getEngine: (userId: string) => repo.getKv(userId, "engine", { nextNudgeAt: null }),
 
   listNudges(userId: string): NudgeDto[] {
+    // Begränsa till de senaste 1000 – räcker gott för frekvenstak i verklig
+    // användning och håller nere payload/rendering (annars kan tusentals rader
+    // ackumuleras vid tät testning).
     return (
       db
-        .prepare("select * from nudges where user_id = ? order by sent_at desc")
+        .prepare("select * from nudges where user_id = ? order by sent_at desc limit 1000")
         .all(userId) as any[]
     ).map(nudgeRow);
   },

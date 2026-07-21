@@ -44,6 +44,22 @@
   h3 {
     @apply font-display;
   }
+
+  /* Normalisera native tid-fält: iOS ritar annars en egen inre "pill" (box i
+     box) och trycker värdet åt sidan; Android trunkerar i trånga fält. */
+  input[type="time"] {
+    -webkit-appearance: none;
+    appearance: none;
+    min-width: 0;
+  }
+  input[type="time"]::-webkit-date-and-time-value {
+    text-align: center;
+    margin: 0;
+    padding: 0;
+  }
+  input[type="time"]::-webkit-calendar-picker-indicator {
+    display: none;
+  }
 }
 
 @layer components {

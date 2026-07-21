@@ -44,19 +44,21 @@ export default function Schedule() {
             </div>
 
             {day.enabled && (
-              <div className="mt-3 grid grid-cols-3 gap-3">
-                <TimeField
-                  label="Från"
-                  value={day.startMinutes}
-                  onChange={(v) => update(day.weekday, { startMinutes: v })}
-                />
-                <TimeField
-                  label="Till"
-                  value={day.endMinutes}
-                  onChange={(v) => update(day.weekday, { endMinutes: v })}
-                />
+              <div className="mt-3 space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <TimeField
+                    label="Från"
+                    value={day.startMinutes}
+                    onChange={(v) => update(day.weekday, { startMinutes: v })}
+                  />
+                  <TimeField
+                    label="Till"
+                    value={day.endMinutes}
+                    onChange={(v) => update(day.weekday, { endMinutes: v })}
+                  />
+                </div>
                 <label className="block">
-                  <span className="text-xs text-moss-500">Antal/dag</span>
+                  <span className="text-xs text-moss-500">Antal per dag</span>
                   <input
                     type="number"
                     min={0}
@@ -93,7 +95,7 @@ function TimeField({
       <span className="text-xs text-moss-500">{label}</span>
       <input
         type="time"
-        className="mt-1 w-full rounded-xl border border-parchment-200 bg-parchment-50 px-3 py-2 outline-none focus:ring-2 focus:ring-gold-500"
+        className="mt-1 w-full rounded-xl border border-parchment-200 bg-parchment-50 px-3 py-2 text-center tabular-nums outline-none focus:ring-2 focus:ring-gold-500"
         value={minutesToHHMM(value)}
         onChange={(e) => onChange(hhmmToMinutes(e.target.value))}
       />

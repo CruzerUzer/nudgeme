@@ -114,7 +114,7 @@ export default function Settings() {
             <span className="text-xs text-moss-500">Från</span>
             <input
               type="time"
-              className="mt-1 w-full rounded-xl border border-parchment-200 bg-parchment-50 px-3 py-2 outline-none focus:ring-2 focus:ring-gold-500"
+              className="mt-1 w-full rounded-xl border border-parchment-200 bg-parchment-50 px-3 py-2 text-center tabular-nums outline-none focus:ring-2 focus:ring-gold-500"
               value={minutesToHHMM(prefs.quietStartMinutes)}
               onChange={(e) =>
                 savePrefs({ ...prefs, quietStartMinutes: hhmmToMinutes(e.target.value) })
@@ -125,7 +125,7 @@ export default function Settings() {
             <span className="text-xs text-moss-500">Till</span>
             <input
               type="time"
-              className="mt-1 w-full rounded-xl border border-parchment-200 bg-parchment-50 px-3 py-2 outline-none focus:ring-2 focus:ring-gold-500"
+              className="mt-1 w-full rounded-xl border border-parchment-200 bg-parchment-50 px-3 py-2 text-center tabular-nums outline-none focus:ring-2 focus:ring-gold-500"
               value={minutesToHHMM(prefs.quietEndMinutes)}
               onChange={(e) =>
                 savePrefs({ ...prefs, quietEndMinutes: hhmmToMinutes(e.target.value) })
