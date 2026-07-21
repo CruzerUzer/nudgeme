@@ -8,9 +8,12 @@ Arbetsregler och projektkontext för Claude Code i det här repot.
   egen färsk branch (t.ex. `feature/inloggning`, `fix/snooze-status`). Aldrig
   commits direkt på `main`, och återanvänd inte en tidigare features branch för
   nytt orelaterat arbete. Öppna PR mot `main`.
-- **Fråga alltid Adam innan deploy till produktion.** Bygge och lokala tester
-  får köras fritt, men produktionsdeploy (t.ex. Supabase functions deploy,
-  hosting av frontend, cron-schemaläggning) sker aldrig utan uttryckligt ja.
+- **Fråga ALLTID Adam innan deploy till produktion.** Den här dev-servern
+  (hemmalinux) har SSH-behörighet att deploya till produktionsservern, men
+  ingenting driftsätts/ändras i prod utan uttryckligt ja från Adam varje gång.
+  Bygge och lokala tester får köras fritt. Produktion = Oracle-VM
+  `ubuntu@potterytracker.faris.se`; NudgeMe ska nås på **nudgeme.faris.se**.
+  Se `DEPLOY.md` för planen.
 - Svara på svenska. Förklara tekniska begrepp kort i förbifarten.
 
 ## Vad NudgeMe är
