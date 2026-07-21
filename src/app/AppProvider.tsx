@@ -94,6 +94,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setBackgroundImages(bgImages);
   }, [service, store]);
 
+  useEffect(() => {
     // Skicka enhetens tidszon så schema/notiser räknas i användarens lokala tid.
     // Följer enheten – körs vid start OCH när appen får fokus (t.ex. efter resa).
     const syncTimeZone = () => {
