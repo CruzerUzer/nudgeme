@@ -79,15 +79,12 @@ export class NudgeService {
     const due = new Date(engine.nextNudgeAt).getTime() <= now.getTime();
     if (!due) return this.currentNudge(now);
 
-    // Har man aktivt åtagit sig (committed) väntar vi – ersätt inte. Annars
-    // (osvarad) auto-ignoreras den aktuella och en ny genereras.
+    // En aktiv nudge ligger kvar tills användaren bekräftar eller tar bort den
+    // (snooza). Ingen ny ska byta ut den.
     const current = await this.currentNudge(now);
-    if (current?.record.status === "committed") {
+    if (current) {
       await this.scheduleNext(now, schedule);
       return current;
-    }
-    if (current) {
-      await this.store.saveNudge({ ...current.record, status: "ignored" });
     }
 
     const created = await this.generate(now);

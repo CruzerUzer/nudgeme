@@ -74,5 +74,10 @@ export async function enablePush(): Promise<{ ok: boolean; message: string }> {
     },
   };
   await store.savePushSubscription(record);
+  // Direkt bekräftelse så man ser att notiser funkar på enheten.
+  await reg.showNotification("NudgeMe", {
+    body: "Notiser är på! 🌿 Du får en knuff när det är dags.",
+    icon: "/icons/icon-192.png",
+  });
   return { ok: true, message: "Klart! Du får en aktivitet när tiden är rätt." };
 }

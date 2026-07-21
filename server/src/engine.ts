@@ -54,6 +54,7 @@ function generate(userId: string, now: Date): boolean {
 async function pushToUser(userId: string, title: string) {
   if (!pushReady) return;
   const prefs = repo.getPrefs(userId) as any;
+  if ((prefs.level ?? 2) <= 1) return; // nivå 1 (Viskning) = ingen push
   const subs = repo.listPushSubs(userId);
   const payload = JSON.stringify({
     title: "Dags för en aktivitet",
@@ -84,18 +85,17 @@ function processUser(userId: string, now: Date) {
     reschedule(userId, now);
     return;
   }
-  // listNudges är sorterad senast först → [0] bland väntande är den aktuella.
+  // En aktiv nudge (sent/acked/committed) ska ligga kvar tills användaren
+  // bekräftar (gör klart) eller tar bort den (snooza). Ingen ny ska byta ut
+  // den – vi skjuter bara fram nästa kontroll.
   const nudges = repo.listNudges(userId);
   const pending = nudges.find((n) =>
     ["sent", "acked", "committed"].includes(n.status),
   );
-  // Har man aktivt åtagit sig (committed) väntar vi – ersätt inte. Annars
-  // (sent/acked, dvs osvarad) auto-ignoreras den och en ny genereras.
-  if (pending?.status === "committed") {
+  if (pending) {
     reschedule(userId, now);
     return;
   }
-  if (pending) repo.upsertNudge(userId, { ...pending, status: "ignored" });
   generate(userId, now);
   reschedule(userId, now);
 }

@@ -93,13 +93,13 @@ function Header() {
   );
 }
 
-/** Bild visas snyggt inuti brickan, under texten. */
+/** Bild visas hel (skalas ner, croppas inte) inuti brickan, under texten. */
 function ActivityImage({ src, alt }: { src: string; alt: string }) {
   return (
     <img
       src={src}
       alt={alt}
-      className="mt-4 max-h-56 w-full rounded-petal object-cover shadow-leaf"
+      className="mx-auto mt-4 max-h-64 w-full rounded-petal object-contain"
     />
   );
 }
