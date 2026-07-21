@@ -59,6 +59,17 @@ export default defineConfig({
       },
     },
   },
+  // Byggd app (med service worker) för HTTPS-test via Tailscale. Samma /api-proxy.
+  preview: {
+    host: true,
+    allowedHosts: [".ts.net"],
+    proxy: {
+      "/api": {
+        target: process.env.API_PROXY ?? "http://localhost:4303",
+        changeOrigin: true,
+      },
+    },
+  },
   test: {
     environment: "node",
     include: ["src/**/*.test.ts"],
