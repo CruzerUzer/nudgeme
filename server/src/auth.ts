@@ -122,7 +122,8 @@ export function register(username: string, password: string): Session {
     throw new HttpError(403, "Registrering är avstängd.");
   }
   const uname = normalize(username);
-  const role = uname === "test" ? "admin" : "user";
+  // Första kontot på en färsk installation blir admin (bootstrap), liksom "test".
+  const role = uname === "test" || countUsers() === 0 ? "admin" : "user";
   const id = createUser(username, password, role, false);
   return { id, username: uname, token: signToken(id), role, mustChangePassword: false };
 }
