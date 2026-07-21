@@ -140,6 +140,11 @@ api.post("/push-subscriptions", (req: AuthedRequest, res) => {
   repo.upsertPushSub(req.userId!, req.body);
   res.json({ ok: true });
 });
+api.delete("/push-subscriptions", (req: AuthedRequest, res) => {
+  // Tas bort vid utloggning så den förra användaren slutar få notiser.
+  if (req.body?.endpoint) repo.deletePushSub(req.userId!, String(req.body.endpoint));
+  res.json({ ok: true });
+});
 
 // Rå bildhämtning är PUBLIK (utan token) – CSS/<img> kan inte skicka Bearer.
 // Måste registreras FÖRE api-routern (som annars kräver auth). Bilderna är

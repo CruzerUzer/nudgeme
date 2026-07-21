@@ -11,6 +11,7 @@ import { getStore, isLocalMode, isServerMode } from "@/lib/db";
 import { NudgeService, type NudgeView } from "@/lib/nudge/service";
 import { nextNudgeTimestamp } from "@/lib/nudge/schedule";
 import { listPacks, getSelectedPack, bgUrl } from "@/lib/backgrounds";
+import { syncPush, removePushOnLogout } from "@/lib/push";
 import type {
   Activity,
   DaySchedule,
@@ -96,6 +97,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     void (async () => {
       await reload();
       setLoading(false);
+      // Koppla enhetens push-prenumeration till den inloggade användaren.
+      void syncPush();
     })();
     // Kör om när fliken får fokus igen (som en riktig påminnelseapp).
     const onFocus = () => void reload();
@@ -116,6 +119,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     localMode: isLocalMode(),
     serverMode: isServerMode(),
     signOut: async () => {
+      await removePushOnLogout(); // stoppa notiser för den utloggade användaren
       await store.signOut();
       window.location.reload();
     },

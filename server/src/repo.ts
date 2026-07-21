@@ -138,11 +138,20 @@ export const repo = {
   },
 
   upsertPushSub(userId: string, sub: { id: string; endpoint: string; keys: unknown }) {
+    // Återkoppla endpointen till NUVARANDE användare (annars fastnar enhetens
+    // notiser hos den som först aktiverade dem – fel på delade enheter).
     db.prepare(
       `insert into push_subscriptions (id, user_id, endpoint, keys, created_at)
        values (?,?,?,?,?)
-       on conflict(endpoint) do update set keys = excluded.keys`,
+       on conflict(endpoint) do update set user_id = excluded.user_id, keys = excluded.keys`,
     ).run(sub.id, userId, sub.endpoint, JSON.stringify(sub.keys), new Date().toISOString());
+  },
+
+  deletePushSub(userId: string, endpoint: string) {
+    db.prepare("delete from push_subscriptions where endpoint = ? and user_id = ?").run(
+      endpoint,
+      userId,
+    );
   },
 
   listPushSubs(userId: string) {

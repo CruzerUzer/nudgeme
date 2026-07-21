@@ -1,4 +1,5 @@
-import { getStore } from "@/lib/db";
+import { getStore, isServerMode } from "@/lib/db";
+import { apiFetch } from "@/lib/api";
 import type { PushSubscriptionRecord } from "@/lib/types";
 
 // Web Push-hjälpare. Push i webbläsare kräver: (1) service worker,
@@ -80,4 +81,57 @@ export async function enablePush(): Promise<{ ok: boolean; message: string }> {
     icon: "/icons/icon-192.png",
   });
   return { ok: true, message: "Klart! Du får en aktivitet när tiden är rätt." };
+}
+
+/**
+ * Kör vid inloggning: om enheten redan har notistillstånd + prenumeration,
+ * koppla den till den NUvarande användaren så notiser följer inloggningen.
+ * Skapar ingen prompt (bara om tillstånd redan givits).
+ */
+export async function syncPush(): Promise<void> {
+  if (!isServerMode() || !pushSupported()) return;
+  if (Notification.permission !== "granted") return;
+  const vapid = import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined;
+  if (!vapid) return;
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(vapid) as BufferSource,
+      });
+    }
+    const json = sub.toJSON();
+    const store = getStore();
+    await store.savePushSubscription({
+      id: json.endpoint ?? crypto.randomUUID(),
+      userId: await store.getUserId(),
+      endpoint: json.endpoint!,
+      keys: { p256dh: json.keys?.p256dh ?? "", auth: json.keys?.auth ?? "" },
+    });
+  } catch {
+    /* best effort – notiser ska aldrig blockera appen */
+  }
+}
+
+/**
+ * Kör vid utloggning: ta bort den här enhetens prenumeration på servern så den
+ * utloggade användaren slutar få notiser. (Webbläsarens prenumeration behålls
+ * så nästa inloggade användare kan återkopplas via syncPush.)
+ */
+export async function removePushOnLogout(): Promise<void> {
+  if (!isServerMode() || !pushSupported()) return;
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription();
+    const endpoint = sub?.toJSON().endpoint;
+    if (!endpoint) return;
+    await apiFetch("/api/push-subscriptions", {
+      method: "DELETE",
+      body: JSON.stringify({ endpoint }),
+    });
+  } catch {
+    /* best effort */
+  }
 }
