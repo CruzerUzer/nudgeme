@@ -29,6 +29,7 @@ import {
   DEFAULT_NOTIFICATION_PREFS,
   defaultWeekSchedule,
   nextTimestamp,
+  isValidTz,
 } from "./nudge.js";
 
 const app = express();
@@ -158,7 +159,7 @@ for (const [path, key] of [
     // sitter den kvar på den gamla (t.ex. ett dygn bort) och nya inställningar
     // (som fler per dag) får ingen effekt förrän den gamla tiden passerat.
     if (key === "schedule") {
-      const next = nextTimestamp(new Date(), req.body ?? []);
+      const next = nextTimestamp(new Date(), req.body ?? [], repo.getTimeZone(req.userId!));
       repo.setKv(req.userId!, "engine", {
         nextNudgeAt: next ? next.toISOString() : null,
       });
@@ -166,6 +167,21 @@ for (const [path, key] of [
     res.json({ ok: true });
   });
 }
+
+// Klienten skickar enhetens tidszon (IANA) så schema/notiser räknas i
+// användarens lokala tid, inte serverns. Räknar om nästa tidpunkt om den ändras.
+api.put("/timezone", (req: AuthedRequest, res) => {
+  const tz = String(req.body?.tz ?? "");
+  if (!isValidTz(tz)) return res.status(400).json({ error: "Ogiltig tidszon." });
+  const prev = repo.getTimeZone(req.userId!);
+  repo.setTimeZone(req.userId!, tz);
+  if (tz !== prev) {
+    const days = repo.getSchedule(req.userId!) as any[];
+    const next = nextTimestamp(new Date(), days, tz);
+    repo.setKv(req.userId!, "engine", { nextNudgeAt: next ? next.toISOString() : null });
+  }
+  res.json({ ok: true, tz });
+});
 
 api.get("/nudges", (req: AuthedRequest, res) => res.json(repo.listNudges(req.userId!)));
 api.post("/nudges", (req: AuthedRequest, res) => {

@@ -23,7 +23,8 @@ if (vapidPublic && vapidPrivate) {
 
 function reschedule(userId: string, now: Date) {
   const days = repo.getSchedule(userId) as any[];
-  const next = nextTimestamp(now, days);
+  const tz = repo.getTimeZone(userId);
+  const next = nextTimestamp(now, days, tz);
   repo.setKv(userId, "engine", { nextNudgeAt: next ? next.toISOString() : null });
 }
 

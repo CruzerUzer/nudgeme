@@ -3,6 +3,7 @@ import {
   DEFAULT_FREQUENCY,
   DEFAULT_NOTIFICATION_PREFS,
   defaultWeekSchedule,
+  DEFAULT_TZ,
 } from "./nudge.js";
 
 // Databasoperationer, mappade till frontendens camelCase-former så att
@@ -106,6 +107,8 @@ export const repo = {
   getSchedule: (userId: string) => repo.getKv(userId, "schedule", defaultWeekSchedule()),
   getPrefs: (userId: string) => repo.getKv(userId, "notifPrefs", DEFAULT_NOTIFICATION_PREFS),
   getEngine: (userId: string) => repo.getKv(userId, "engine", { nextNudgeAt: null }),
+  getTimeZone: (userId: string) => repo.getKv<string>(userId, "timeZone", DEFAULT_TZ),
+  setTimeZone: (userId: string, tz: string) => repo.setKv(userId, "timeZone", tz),
 
   listNudges(userId: string): NudgeDto[] {
     // Begränsa till de senaste 1000 – räcker gott för frekvenstak i verklig

@@ -78,23 +78,70 @@ export function selectEligible(
   return eligible[Math.floor(rnd() * eligible.length)];
 }
 
+export const DEFAULT_TZ = "Europe/Stockholm";
+
+export function isValidTz(tz: string): boolean {
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: tz });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Väggklockans delar för `date` i tidszonen `tz`. */
+function tzParts(date: Date, tz: string) {
+  const dtf = new Intl.DateTimeFormat("en-US", {
+    timeZone: tz,
+    hourCycle: "h23",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+  const o: Record<string, string> = {};
+  for (const p of dtf.formatToParts(date)) if (p.type !== "literal") o[p.type] = p.value;
+  return o;
+}
+
+/** UTC-instant för väggklockstid (minuter efter midnatt) på ett kalenderdatum i tz. */
+function zonedToUtc(y: number, mo: number, d: number, minutes: number, tz: string): Date {
+  const h = Math.floor(minutes / 60);
+  const mi = minutes % 60;
+  const guess = Date.UTC(y, mo - 1, d, h, mi);
+  const p = tzParts(new Date(guess), tz);
+  const asIfUtc = Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute, +p.second);
+  const offset = asIfUtc - guess; // tz-offset (ms) vid den tidpunkten
+  return new Date(guess - offset);
+}
+
+/**
+ * Nästa nudge-tidpunkt, beräknad i ANVÄNDARENS tidszon (DST-medvetet), inte
+ * serverns. `tz` = IANA-namn (t.ex. "Europe/Stockholm").
+ */
 export function nextTimestamp(
   now: Date,
   days: DaySchedule[],
+  tz: string = DEFAULT_TZ,
   rnd: () => number = Math.random,
 ): Date | null {
+  const zone = isValidTz(tz) ? tz : DEFAULT_TZ;
+  const base = tzParts(now, zone); // dagens kalenderdatum i användarens tz
   for (let offset = 0; offset < 8; offset++) {
-    const date = new Date(now);
-    date.setDate(date.getDate() + offset);
-    const day = days.find((d) => d.weekday === date.getDay());
+    // Kalenderdatum + offset dagar (noon-UTC-aritmetik ger säkert datum/veckodag).
+    const dd = new Date(Date.UTC(+base.year, +base.month - 1, +base.day + offset, 12));
+    const y = dd.getUTCFullYear();
+    const mo = dd.getUTCMonth() + 1;
+    const d = dd.getUTCDate();
+    const day = days.find((x) => x.weekday === dd.getUTCDay());
     if (!day?.enabled || day.nudgesPerDay <= 0) continue;
     const span = Math.max(0, day.endMinutes - day.startMinutes);
     const slot = span / day.nudgesPerDay;
-    const midnight = new Date(date);
-    midnight.setHours(0, 0, 0, 0);
     for (let i = 0; i < day.nudgesPerDay; i++) {
       const minutes = Math.round(day.startMinutes + i * slot + rnd() * slot);
-      const candidate = new Date(midnight.getTime() + minutes * 60_000);
+      const candidate = zonedToUtc(y, mo, d, minutes, zone);
       if (candidate.getTime() > now.getTime()) return candidate;
     }
   }

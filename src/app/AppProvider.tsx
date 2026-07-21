@@ -12,6 +12,7 @@ import { NudgeService, type NudgeView } from "@/lib/nudge/service";
 import { nextNudgeTimestamp } from "@/lib/nudge/schedule";
 import { listPacks, getSelectedPack, bgUrl } from "@/lib/backgrounds";
 import { syncPush, removePushOnLogout } from "@/lib/push";
+import { apiFetch } from "@/lib/api";
 import type {
   Activity,
   DaySchedule,
@@ -99,6 +100,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setLoading(false);
       // Koppla enhetens push-prenumeration till den inloggade användaren.
       void syncPush();
+      // Skicka enhetens tidszon så schema/notiser räknas i användarens lokala tid.
+      if (isServerMode()) {
+        const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        if (tz) {
+          void apiFetch("/api/timezone", {
+            method: "PUT",
+            body: JSON.stringify({ tz }),
+          }).catch(() => undefined);
+        }
+      }
     })();
     // Kör om när fliken får fokus igen (som en riktig påminnelseapp).
     const onFocus = () => void reload();
