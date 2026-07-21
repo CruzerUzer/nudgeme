@@ -8,6 +8,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "build:server": "tsc -b && VITE_SERVER_MODE=1 vite build",
+    "build:test": "tsc -b && VITE_TEST_BUILD=1 VITE_SERVER_MODE=1 vite build",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",

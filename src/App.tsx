@@ -14,19 +14,22 @@ import BackgroundAdmin from "./screens/BackgroundAdmin";
 import ForceChangePassword from "./screens/ChangePassword";
 import Background from "./components/Background";
 import BrandMark from "./components/BrandMark";
+import TestBadge from "./components/TestBadge";
 import { isServerMode } from "./lib/db";
 import { getToken, getMustChange } from "./lib/api";
 
 const ONBOARDED_KEY = "nudgeme:onboarded";
+const IS_TEST = import.meta.env.VITE_TEST_BUILD === "1";
 
 export default function App() {
   const serverMode = isServerMode();
   const [authed, setAuthed] = useState(() => !serverMode || !!getToken());
   const [mustChange, setMustChange] = useState(() => serverMode && getMustChange());
 
-  // I serverläge krävs inloggning innan datat laddas.
+  let content;
   if (serverMode && !authed) {
-    return (
+    // I serverläge krävs inloggning innan datat laddas.
+    content = (
       <Auth
         onAuthed={() => {
           setAuthed(true);
@@ -34,17 +37,22 @@ export default function App() {
         }}
       />
     );
-  }
-
-  // Tvinga lösenordsbyte för admin-skapade konton vid första inloggning.
-  if (serverMode && mustChange) {
-    return <ForceChangePassword onDone={() => setMustChange(false)} />;
+  } else if (serverMode && mustChange) {
+    // Tvinga lösenordsbyte för admin-skapade konton vid första inloggning.
+    content = <ForceChangePassword onDone={() => setMustChange(false)} />;
+  } else {
+    content = (
+      <AppProvider>
+        <Shell />
+      </AppProvider>
+    );
   }
 
   return (
-    <AppProvider>
-      <Shell />
-    </AppProvider>
+    <>
+      {IS_TEST && <TestBadge />}
+      {content}
+    </>
   );
 }
 
