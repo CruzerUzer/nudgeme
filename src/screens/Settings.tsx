@@ -9,6 +9,7 @@ import { NOTIFICATION_LEVELS, type FrequencyClass, type NotificationLevel } from
 import { LABELS } from "@/copy/voice";
 import { minutesToHHMM, hhmmToMinutes } from "@/lib/time";
 import { enablePush, pushSupported } from "@/lib/push";
+import { isIos, isStandalone } from "@/lib/pwaInstall";
 
 const CLASS_NAME: Record<FrequencyClass, string> = {
   A: "A · ofta",
@@ -95,12 +96,27 @@ export default function Settings() {
             })}
         </div>
 
-        {pushSupported() && prefs.level > 1 && (
+        {prefs.level > 1 && (
           <div className="mt-4">
-            <button className="btn-primary w-full" onClick={onEnablePush}>
-              Aktivera notiser på den här enheten
-            </button>
-            {pushMsg && <p className="mt-2 text-sm text-moss-500">{pushMsg}</p>}
+            {pushSupported() ? (
+              <>
+                <button className="btn-primary w-full" onClick={onEnablePush}>
+                  Aktivera notiser på den här enheten
+                </button>
+                {pushMsg && <p className="mt-2 text-sm text-moss-500">{pushMsg}</p>}
+              </>
+            ) : isIos() && !isStandalone() ? (
+              <p className="rounded-2xl bg-parchment-50 p-3 text-sm text-moss-500">
+                📱 Notiser på iPhone kräver att appen läggs till på hemskärmen:
+                tryck på <strong>Dela</strong> → <em>”Lägg till på hemskärmen”</em>
+                och öppna NudgeMe därifrån.
+              </p>
+            ) : (
+              <p className="rounded-2xl bg-parchment-50 p-3 text-sm text-moss-500">
+                Den här webbläsaren stöder inte notiser. De fungerar på mobil
+                (installerad app) och i Chrome/Edge/Firefox på dator.
+              </p>
+            )}
           </div>
         )}
       </section>
