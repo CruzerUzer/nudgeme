@@ -9,6 +9,7 @@ import {
   adminRenameUser,
   adminDeleteUser,
   adminSetRegistration,
+  adminTestNudge,
   getRegistrationOpen,
   type AdminUser,
 } from "@/lib/serverAuth";
@@ -73,6 +74,17 @@ export default function Admin() {
     });
   }
 
+  async function testNudge() {
+    await run(async () => {
+      const r = await adminTestNudge();
+      setNotice(
+        r.created
+          ? `Ny aktivitet skapad på Hem.${r.pushed ? " Pushnotis skickad." : " (Ingen push – aktivera notiser på den här enheten och välj nivå 2–4.)"}`
+          : "Ingen kvalificerad aktivitet att skicka just nu (alla kan vara frekvensbegränsade).",
+      );
+    });
+  }
+
   async function saveRename(u: AdminUser) {
     await run(async () => {
       await adminRenameUser(u.id, editName);
@@ -102,6 +114,18 @@ export default function Admin() {
             {regOpen ? "Stäng av" : "Slå på"}
           </button>
         </div>
+      </section>
+
+      {/* Testa notiser (skickar en aktivitet + push till ditt eget konto) */}
+      <section className="card p-5">
+        <h2 className="text-lg text-moss-800">Testa notiser</h2>
+        <p className="mb-3 text-sm text-moss-500">
+          Tvinga fram en ny aktivitet på Hem och skicka pushnotisen direkt till
+          ditt eget konto.
+        </p>
+        <button className="btn-primary w-full" onClick={testNudge}>
+          Skicka testnotis nu
+        </button>
       </section>
 
       <form onSubmit={create} className="card space-y-3 p-5">

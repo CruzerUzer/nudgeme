@@ -91,6 +91,13 @@ export function adminSetRegistration(open: boolean) {
   });
 }
 
+/** Admin-test: tvinga fram en ny aktivitet + pushnotis nu (till admins konto). */
+export function adminTestNudge() {
+  return apiFetch<{ created: boolean; pushed: boolean }>("/api/admin/test-nudge", {
+    method: "POST",
+  });
+}
+
 /** Publik (pre-auth): får nya registrera sig? */
 export async function getRegistrationOpen(): Promise<boolean> {
   try {

@@ -21,7 +21,7 @@ import {
   type AuthedRequest,
 } from "./auth.js";
 import { repo } from "./repo.js";
-import { initUserEngine, startEngine } from "./engine.js";
+import { initUserEngine, startEngine, triggerNudge } from "./engine.js";
 import * as bg from "./backgrounds.js";
 import { readFileSync } from "node:fs";
 import {
@@ -128,6 +128,10 @@ api.delete("/admin/users/:id", requireAdmin, (req: AuthedRequest, res) => {
 api.put("/admin/registration", requireAdmin, (req, res) => {
   setRegistrationOpen(req.body?.open === true);
   res.json({ ok: true, open: isRegistrationOpen() });
+});
+// Admin-test: tvinga fram en ny aktivitet + pushnotis nu (till admins eget konto).
+api.post("/admin/test-nudge", requireAdmin, (req: AuthedRequest, res) => {
+  res.json(triggerNudge(req.userId!));
 });
 
 api.get("/activities", (req: AuthedRequest, res) =>
