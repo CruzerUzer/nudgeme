@@ -172,7 +172,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
           nextNudgeAt: next ? next.toISOString() : null,
         });
       }
-      await reload();
+      // Ingen reload här: Schema-vyn äger sitt lokala state och en reload skulle
+      // skriva över fältet mitt i redigeringen.
     },
     savePrefs: async (p) => {
       await store.saveNotificationPrefs(p);

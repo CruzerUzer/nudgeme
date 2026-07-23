@@ -154,12 +154,22 @@ for (const [path, key] of [
     res.json(repo.getKv(req.userId!, key, defaultFor(key))),
   );
   api.put(`/${path}`, (req: AuthedRequest, res) => {
-    repo.setKv(req.userId!, key, req.body);
+    let body = req.body;
+    // Sanera schemat: heltal, rimliga gränser (skyddar mot t.ex. 100000/dag).
+    if (key === "schedule" && Array.isArray(body)) {
+      body = body.map((d: any) => ({
+        ...d,
+        nudgesPerDay: Math.min(24, Math.max(0, Math.floor(Number(d?.nudgesPerDay) || 0))),
+        startMinutes: Math.min(1439, Math.max(0, Math.floor(Number(d?.startMinutes) || 0))),
+        endMinutes: Math.min(1439, Math.max(0, Math.floor(Number(d?.endMinutes) || 0))),
+      }));
+    }
+    repo.setKv(req.userId!, key, body);
     // När schemat ändras: räkna om nästa aktivitets-tidpunkt direkt, annars
     // sitter den kvar på den gamla (t.ex. ett dygn bort) och nya inställningar
     // (som fler per dag) får ingen effekt förrän den gamla tiden passerat.
     if (key === "schedule") {
-      const next = nextTimestamp(new Date(), req.body ?? [], repo.getTimeZone(req.userId!));
+      const next = nextTimestamp(new Date(), body ?? [], repo.getTimeZone(req.userId!));
       repo.setKv(req.userId!, "engine", {
         nextNudgeAt: next ? next.toISOString() : null,
       });

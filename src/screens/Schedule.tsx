@@ -1,18 +1,33 @@
+import { useEffect, useRef, useState } from "react";
 import { useApp } from "@/app/AppProvider";
 import { WEEKDAY_NAMES, WEEK_ORDER, minutesToHHMM, hhmmToMinutes } from "@/lib/time";
 import type { DaySchedule } from "@/lib/types";
 
+/** Max antal aktiviteter per dag (håller det vettigt och snabbt). */
+export const MAX_PER_DAY = 24;
+
 export default function Schedule() {
   const { schedule, saveSchedule } = useApp();
+  // Lokal kopia så redigering blir smidig och inte skrivs över av poll/reload.
+  const [days, setDays] = useState<DaySchedule[]>(schedule);
+  const saveTimer = useRef<ReturnType<typeof setTimeout>>();
+
+  // Initiera från servern första gången schemat laddats.
+  useEffect(() => {
+    if (days.length === 0 && schedule.length > 0) setDays(schedule);
+  }, [schedule, days.length]);
 
   function update(weekday: number, patch: Partial<DaySchedule>) {
-    const next = schedule.map((d) =>
-      d.weekday === weekday ? { ...d, ...patch } : d,
-    );
-    void saveSchedule(next);
+    setDays((prev) => {
+      const next = prev.map((d) => (d.weekday === weekday ? { ...d, ...patch } : d));
+      // Debounca sparningen så vi inte gör ett tungt anrop per tangenttryck.
+      clearTimeout(saveTimer.current);
+      saveTimer.current = setTimeout(() => void saveSchedule(next), 500);
+      return next;
+    });
   }
 
-  const ordered = WEEK_ORDER.map((w) => schedule.find((d) => d.weekday === w)).filter(
+  const ordered = WEEK_ORDER.map((w) => days.find((d) => d.weekday === w)).filter(
     Boolean,
   ) as DaySchedule[];
 
@@ -61,15 +76,17 @@ export default function Schedule() {
                   <span className="text-xs text-moss-500">Antal per dag</span>
                   <input
                     type="number"
+                    inputMode="numeric"
                     min={0}
-                    max={8}
+                    max={MAX_PER_DAY}
                     className="mt-1 w-full rounded-xl border border-parchment-200 bg-parchment-50 px-3 py-2 outline-none focus:ring-2 focus:ring-gold-500"
                     value={day.nudgesPerDay}
-                    onChange={(e) =>
+                    onChange={(e) => {
+                      const raw = e.target.value === "" ? 0 : Number(e.target.value);
                       update(day.weekday, {
-                        nudgesPerDay: Math.max(0, Number(e.target.value)),
-                      })
-                    }
+                        nudgesPerDay: Math.min(MAX_PER_DAY, Math.max(0, raw || 0)),
+                      });
+                    }}
                   />
                 </label>
               </div>

@@ -89,20 +89,30 @@ export function isValidTz(tz: string): boolean {
   }
 }
 
+// Intl-formaterare är dyra att skapa – cacha per tidszon.
+const tzFmtCache = new Map<string, Intl.DateTimeFormat>();
+function tzFmt(tz: string): Intl.DateTimeFormat {
+  let f = tzFmtCache.get(tz);
+  if (!f) {
+    f = new Intl.DateTimeFormat("en-US", {
+      timeZone: tz,
+      hourCycle: "h23",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    });
+    tzFmtCache.set(tz, f);
+  }
+  return f;
+}
+
 /** Väggklockans delar för `date` i tidszonen `tz`. */
 function tzParts(date: Date, tz: string) {
-  const dtf = new Intl.DateTimeFormat("en-US", {
-    timeZone: tz,
-    hourCycle: "h23",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  });
   const o: Record<string, string> = {};
-  for (const p of dtf.formatToParts(date)) if (p.type !== "literal") o[p.type] = p.value;
+  for (const p of tzFmt(tz).formatToParts(date)) if (p.type !== "literal") o[p.type] = p.value;
   return o;
 }
 
@@ -128,7 +138,9 @@ export function nextTimestamp(
   rnd: () => number = Math.random,
 ): Date | null {
   const zone = isValidTz(tz) ? tz : DEFAULT_TZ;
-  const base = tzParts(now, zone); // dagens kalenderdatum i användarens tz
+  const nowMs = now.getTime();
+  const base = tzParts(now, zone); // dagens kalenderdatum + väggklocka i användarens tz
+  const nowMinutes = +base.hour * 60 + +base.minute + +base.second / 60;
   for (let offset = 0; offset < 8; offset++) {
     // Kalenderdatum + offset dagar (noon-UTC-aritmetik ger säkert datum/veckodag).
     const dd = new Date(Date.UTC(+base.year, +base.month - 1, +base.day + offset, 12));
@@ -137,12 +149,22 @@ export function nextTimestamp(
     const d = dd.getUTCDate();
     const day = days.find((x) => x.weekday === dd.getUTCDay());
     if (!day?.enabled || day.nudgesPerDay <= 0) continue;
+    const n = day.nudgesPerDay;
     const span = Math.max(0, day.endMinutes - day.startMinutes);
-    const slot = span / day.nudgesPerDay;
-    for (let i = 0; i < day.nudgesPerDay; i++) {
+    const slot = n > 0 ? span / n : 0;
+
+    // Prestanda: hoppa direkt till slotten nära `now` idag (annars O(n) med
+    // dyra tz-konverteringar per slot – katastrofalt vid stora nudgesPerDay).
+    // Framtida dagar räcker det med första sloten (allt ligger efter now).
+    const iStart =
+      offset === 0 && slot > 0
+        ? Math.max(0, Math.floor((nowMinutes - day.startMinutes) / slot) - 1)
+        : 0;
+    for (let i = iStart; i < n; i++) {
       const minutes = Math.round(day.startMinutes + i * slot + rnd() * slot);
       const candidate = zonedToUtc(y, mo, d, minutes, zone);
-      if (candidate.getTime() > now.getTime()) return candidate;
+      if (candidate.getTime() > nowMs) return candidate;
+      if (offset > 0) break; // framtida dag: första sloten räcker
     }
   }
   return null;
