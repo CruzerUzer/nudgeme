@@ -8,6 +8,11 @@ Framtida arbete som medvetet skjutits upp.
   automatiskt bild på matchande seed-aktivitet. **Väntar på att Adam laddar upp
   bilderna.**
 
+## Full offline (planerad, ej implementerad)
+- Se `OFFLINE.md` för hela ritningen. Kort: läs-cache (IndexedDB) + outbox för
+  skrivningar som dekorerar `LocalServerStore`. Rekommenderad start: **fas 1**
+  (offline-läsning) som eget litet steg – störst nytta, lägst risk.
+
 ## Produktion (kräver Adams OK innan deploy)
 - Kör servern under en process-manager (t.ex. systemd eller pm2) istället för
   att starta manuellt; nudge-motorn är en `setInterval` i `startEngine`.
