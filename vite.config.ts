@@ -33,8 +33,26 @@ export default defineConfig({
     VitePWA({
       registerType: "autoUpdate",
       includeAssets: [isTest ? "test-favicon.png" : "favicon.png"],
-      // Lägg till vår push-/klick-hanterare i den genererade service workern.
-      workbox: { importScripts: ["push-handler.js"] },
+      workbox: {
+        // Lägg till vår push-/klick-hanterare i den genererade service workern.
+        importScripts: ["push-handler.js"],
+        // Cacha bakgrundsbilderna i service workern (CacheFirst). URL:erna är
+        // oföränderliga (bild-id byts när admin byter bild), så en bild kan
+        // ligga kvar länge. Då laddas de bara EN gång, överlever att appen
+        // tvångsstängs och visas även offline.
+        runtimeCaching: [
+          {
+            urlPattern: ({ url }) =>
+              url.pathname.startsWith("/api/backgrounds/image/"),
+            handler: "CacheFirst",
+            options: {
+              cacheName: "nudgeme-backgrounds",
+              expiration: { maxEntries: 60, maxAgeSeconds: 60 * 60 * 24 * 30 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+        ],
+      },
       manifest: {
         name: isTest ? "NudgeMe TEST" : "NudgeMe",
         short_name: isTest ? "NudgeMe TEST" : "NudgeMe",

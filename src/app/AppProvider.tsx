@@ -13,12 +13,14 @@ import { nextNudgeTimestamp } from "@/lib/nudge/schedule";
 import { listPacks, getSelectedPack, bgUrl } from "@/lib/backgrounds";
 import { syncPush, removePushOnLogout } from "@/lib/push";
 import { apiFetch } from "@/lib/api";
-import type {
-  Activity,
-  DaySchedule,
-  FrequencySettings,
-  NotificationPrefs,
-  NudgeRecord,
+import {
+  DEFAULT_FREQUENCY,
+  DEFAULT_NOTIFICATION_PREFS,
+  type Activity,
+  type DaySchedule,
+  type FrequencySettings,
+  type NotificationPrefs,
+  type NudgeRecord,
 } from "@/lib/types";
 
 interface AppState {
@@ -52,9 +54,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [current, setCurrent] = useState<NudgeView | null>(null);
   const [activities, setActivities] = useState<Activity[]>([]);
-  const [frequency, setFrequency] = useState<FrequencySettings | null>(null);
+  // Defaults (inte null) så att appen kan rendera även innan/utan att servern
+  // svarar – t.ex. offline. Riktiga värden skrivs över när reload() lyckas.
+  const [frequency, setFrequency] = useState<FrequencySettings>(DEFAULT_FREQUENCY);
   const [schedule, setSchedule] = useState<DaySchedule[]>([]);
-  const [prefs, setPrefs] = useState<NotificationPrefs | null>(null);
+  const [prefs, setPrefs] = useState<NotificationPrefs>(DEFAULT_NOTIFICATION_PREFS);
   const [history, setHistory] = useState<NudgeRecord[]>([]);
   const [backgroundImages, setBackgroundImages] = useState<Record<string, string>>({});
 
@@ -109,8 +113,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
     };
 
     void (async () => {
-      await reload();
-      setLoading(false);
+      // Fastna ALDRIG på laddningsskärmen: offline/serverfel ska ändå släppa
+      // fram appen (skalet är cachat av service workern) med senast kända/defaults.
+      try {
+        await reload();
+      } catch {
+        /* offline eller serverfel – rendera ändå */
+      } finally {
+        setLoading(false);
+      }
       // Koppla enhetens push-prenumeration till den inloggade användaren.
       void syncPush();
       syncTimeZone();
@@ -145,9 +156,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     service,
     current,
     activities,
-    frequency: frequency!,
+    frequency,
     schedule,
-    prefs: prefs!,
+    prefs,
     history,
     reload,
     saveActivity: async (a) => {
