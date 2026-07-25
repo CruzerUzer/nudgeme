@@ -13,6 +13,13 @@ Framtida arbete som medvetet skjutits upp.
   skrivningar som dekorerar `LocalServerStore`. Rekommenderad start: **fas 1**
   (offline-läsning) som eget litet steg – störst nytta, lägst risk.
 
+## Testinstans – överlever inte reboot (medvetet nedprioriterat)
+- Dev-backend (`:4303`) och `vite preview` (`:4305`) för test-PWA:n körs via
+  `nohup`, inte under en process-manager, så de dör vid en omstart av hemmalinux
+  och måste startas om för hand (kommandon i `DEPLOY.md` → "Testinstans").
+  *Ev. framtida förbättring:* lägg dem under systemd/PM2 så testinstansen kommer
+  upp automatiskt efter reboot. Inte brådskande – test startas sällan om.
+
 ## Produktion (kräver Adams OK innan deploy)
 - Kör servern under en process-manager (t.ex. systemd eller pm2) istället för
   att starta manuellt; nudge-motorn är en `setInterval` i `startEngine`.
