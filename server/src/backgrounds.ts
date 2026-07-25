@@ -140,10 +140,12 @@ export async function addImage(packId: string, screen: string, buffer: Buffer) {
 
   const id = randomUUID();
   const out = join(UPLOAD_DIR, `${id}.webp`);
+  // Bakgrunder visas under ett scrim, så måttlig upplösning/kvalitet räcker och
+  // håller filerna små (snabbare laddning). ~1280 px + kvalitet 58.
   await sharp(buffer)
     .rotate()
-    .resize(1600, 1600, { fit: "inside", withoutEnlargement: true })
-    .webp({ quality: 72 })
+    .resize(1280, 1280, { fit: "inside", withoutEnlargement: true })
+    .webp({ quality: 58 })
     .toFile(out);
 
   const prev = db

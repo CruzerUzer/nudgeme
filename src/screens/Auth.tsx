@@ -47,7 +47,7 @@ export default function Auth({ onAuthed }: { onAuthed: () => void }) {
             className="absolute inset-0 bg-cover bg-center"
             style={{ backgroundImage: `url("${bg}")` }}
           />
-          <div className="absolute inset-0 bg-parchment-100/60 backdrop-blur-[1px]" />
+          <div className="absolute inset-0 bg-parchment-100/40" />
         </div>
       )}
       <div className="mx-auto flex min-h-full max-w-md flex-col justify-center px-6">
