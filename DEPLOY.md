@@ -99,9 +99,51 @@ sudo certbot --nginx -d nudgeme.faris.se
 ---
 
 ## Uppdateringar efteråt
+- **Allt i ett steg (rekommenderat):** `./update-nudgeme.sh` från dev-maskinen.
+  Gör: backup av prod-data → bygg frontend lokalt (`build:server`) → rsync →
+  `git pull` + `npm install --omit=dev` + `pm2 restart nudgeme-api` på VM:en →
+  verifierar `https://nudgeme.faris.se/api/registration-status`. Kräver Adams OK.
+  (En 502 direkt efter restart är oftast bara `tsx` som kallstartar – verifiera
+  om med `curl --retry`.)
 - **Bara frontend:** `./deploy/deploy-frontend.sh` (bygg lokalt + rsync).
-- **Backend:** på VM:en `cd /srv/NudgeMe && git pull && cd server && npm install --omit=dev && pm2 restart nudgeme-api`.
-- Överväg ett `update-nudgeme.sh` (som PotteryTrackers) som gör detta i ett steg.
+- **Prod-branch:** VM:en står på `main` och gör `git pull` – merga till `main`
+  och pusha innan `update-nudgeme.sh` körs.
+
+### Om-koda befintliga bakgrundsbilder på prod (engångs)
+Nya uppladdningar skalas i `server/src/backgrounds.ts` (1280 px, WebP q58), men
+redan uppladdade bilder ligger kvar i sin gamla storlek. För att krympa ett
+befintligt paket på plats: säkerhetskopiera filerna, kör `sharp(...).resize(1280,
+1280,{fit:"inside"}).webp({quality:58})` över varje fil (skriv temp → `rename`),
+behåll DB-raderna. (Så gjordes paketet "Bäck": 1,13 MB → 535 KB.)
+
+## Testinstans (HTTPS via Tailscale)
+En separat, visuellt distinkt PWA ("NudgeMe TEST") körs på dev-maskinen så att
+test och prod kan ligga parallellt på samma telefon. Nås **bara i tailnet**.
+
+- **URL:** `https://hemmalinux.taila35f69.ts.net:8443`
+- **Kedja:** Tailscale serve (`:8443`) → `vite preview` på `127.0.0.1:4305` →
+  `/api`-proxy → dev-backend på `:4303`.
+- **Portar (Helm-allokerade, hårdkoda inte nya):** backend `4303`, preview `4305`.
+- **Dev-backend:** egen SQLite (`server/data/nudgeme.db`) + uploads
+  (`server/data/uploads/`), skild från prod. VAPID i `server/.env`.
+- **Test-bygget** använder *dev*-VAPID (inte prod), så publiknyckeln måste skickas
+  inline – `.env.production.local` gäller annars alla produktionslägesbyggen:
+  ```bash
+  DEVPUB=$(grep VITE_VAPID_PUBLIC_KEY .env.local | cut -d= -f2-)
+  VITE_VAPID_PUBLIC_KEY="$DEVPUB" npm run build:test   # → dist/ (titel "NudgeMe TEST", röd ikon)
+  ```
+- **Starta om (om de dött, t.ex. efter reboot – de körs via `nohup`, ingen PM2):**
+  ```bash
+  # backend
+  cd server && nohup setsid bash -c 'PORT=4303 exec npm start' >/tmp/nudgeme-api.log 2>&1 </dev/null & disown
+  # preview (serverar dist/ från senaste build:test)
+  nohup setsid bash -c 'exec npx vite preview --host 127.0.0.1 --port 4305' >/tmp/nudgeme-preview.log 2>&1 </dev/null & disown
+  # tailscale (om serve-regeln försvunnit)
+  tailscale serve --bg --https=8443 http://127.0.0.1:4305
+  ```
+- **Uppdatera test:** kör `build:test` (ovan) igen; `vite preview` serverar
+  `dist/` direkt från disk. Ladda om PWA:n; stäng/öppna en gång så nya service
+  workern tar över (iPhone kan kräva ta bort + lägg till på hemskärmen igen).
 
 ## Data & backup
 - SQLite: `/srv/NudgeMe/server/data/nudgeme.db`. Uppladdade bakgrunder:
