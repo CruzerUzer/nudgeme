@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { useApp } from "@/app/AppProvider";
 
@@ -15,6 +16,16 @@ function routeToScreen(path: string): string {
 export default function Background() {
   const { backgroundImages } = useApp();
   const { pathname } = useLocation();
+
+  // Förladda ALLA skärmars bakgrunder när paketet laddats, så att byte av skärm
+  // känns direkt (bilderna ligger redan i webbläsarens cache).
+  useEffect(() => {
+    for (const u of Object.values(backgroundImages)) {
+      const img = new Image();
+      img.src = u;
+    }
+  }, [backgroundImages]);
+
   const url = backgroundImages[routeToScreen(pathname)];
   if (!url) return null;
 
@@ -24,8 +35,8 @@ export default function Background() {
         className="absolute inset-0 bg-cover bg-center transition-opacity duration-500"
         style={{ backgroundImage: `url("${url}")` }}
       />
-      {/* Scrim för läsbarhet – släpper igenom bilden men håller texten läsbar */}
-      <div className="absolute inset-0 bg-parchment-100/60 backdrop-blur-[1px]" />
+      {/* Lättare scrim (40 %) utan blur – bilden syns mer, texten förblir läsbar */}
+      <div className="absolute inset-0 bg-parchment-100/40" />
     </div>
   );
 }
