@@ -145,6 +145,16 @@ test och prod kan ligga parallellt på samma telefon. Nås **bara i tailnet**.
   `dist/` direkt från disk. Ladda om PWA:n; stäng/öppna en gång så nya service
   workern tar över (iPhone kan kräva ta bort + lägg till på hemskärmen igen).
 
+> ⚠️ **`dist/` är delad — ett vanligt `npm run build` kapar testinstansen.**
+> `vite preview` (:4305) läser `dist/` **live från disk**. Både `npm run build`
+> (lokalt läge, ingen test-branding) och `npm run build:test` skriver till samma
+> `dist/`. Kör du `npm run build` för att verifiera ett bygge skrivs test-PWA:n
+> tyst över med ett lokalt-läge-bygge (fel titel/ikon, ingen inloggning) tills
+> nästa `build:test`. **Regel:** typecheck:a med `npm run typecheck` (rör inte
+> `dist/`); behöver du ett fullt bygge, kör `npm run build:test` så testinstansen
+> förblir korrekt — och verifiera efteråt att `curl -s http://127.0.0.1:4305/ |
+> grep '<title>'` visar `NudgeMe TEST`.
+
 ## Data & backup
 - SQLite: `/srv/NudgeMe/server/data/nudgeme.db`. Uppladdade bakgrunder:
   `/srv/NudgeMe/server/data/uploads/`. Lägg in i samma backup-rutin som

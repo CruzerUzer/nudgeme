@@ -28,13 +28,21 @@ alviskt/natur/romantasy med humoristisk copy.
 
 ```bash
 npm run dev        # dev-server (porten allokeras via Helm: helmctl port claim nudgeme)
-npm run build      # typecheck (tsc -b) + produktionsbygge
+npm run typecheck  # tsc -b --noEmit — verifiera typerna UTAN att skriva dist/
+npm run build      # typecheck + produktionsbygge → dist/  (⚠️ se nedan)
 npm run test       # enhetstester (Vitest)
 node scripts/gen-icons.mjs   # regenerera PWA-ikoner
 ```
 
-Verifiera alltid med `npm run build` + `npm run test` innan en PR. Vid
+Verifiera alltid med `npm run typecheck` + `npm run test` innan en PR. Vid
 UI-ändringar: kör dev-servern och ta gärna en skärmbild (mobilvy 390px).
+
+> ⚠️ **Kör INTE `npm run build` bara för att verifiera.** `dist/` är delad med
+> testinstansen: `vite preview` (:4305, se `DEPLOY.md`) servar `dist/` live från
+> disk, så ett vanligt `npm run build` (lokalt läge) skriver tyst över test-PWA:n
+> med fel bygge tills nästa `build:test`. Använd `npm run typecheck` för att
+> verifiera typerna. Behöver du verkligen ett fullt bygge, kör `npm run
+> build:test` (server-läge + test-branding) så testinstansen förblir korrekt.
 
 ## Arkitektur
 
