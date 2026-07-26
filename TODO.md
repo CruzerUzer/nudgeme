@@ -8,10 +8,15 @@ Framtida arbete som medvetet skjutits upp.
   automatiskt bild på matchande seed-aktivitet. **Väntar på att Adam laddar upp
   bilderna.**
 
-## Full offline (planerad, ej implementerad)
+## Full offline (fas 1 klar – fas 2–3 kvar)
 - Se `OFFLINE.md` för hela ritningen. Kort: läs-cache (IndexedDB) + outbox för
-  skrivningar som dekorerar `LocalServerStore`. Rekommenderad start: **fas 1**
-  (offline-läsning) som eget litet steg – störst nytta, lägst risk.
+  skrivningar som dekorerar `LocalServerStore`.
+- **Fas 1 (offline-läsning) implementerad** (`OfflineStore` + `offlineCache`):
+  read-through-cache per userId, offline-banner. Skrivningar går ännu rakt
+  igenom och failar snällt offline.
+- **Kvar:** fas 2 (outbox + optimistiska skrivningar + status-avancerings-guard
+  på servern) och fas 3 (robust synk/konflikt, Background Sync, "Överraska mig"
+  offline).
 
 ## Testinstans – överlever inte reboot (medvetet nedprioriterat)
 - Dev-backend (`:4303`) och `vite preview` (`:4305`) för test-PWA:n körs via
