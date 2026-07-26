@@ -122,6 +122,21 @@ export const repo = {
   },
 
   upsertNudge(userId: string, n: NudgeDto) {
+    // Status-guard (offline-synk): "done" är terminal. En genomförd nudge får
+    // aldrig backas – varken av motorns auto-ignorering eller av en sen offline-
+    // replay som hann köas före men anländer efter. Behåll status + tidsstämplar
+    // om raden redan är done (follow_up_asked_at får fortf. uppdateras så
+    // uppföljningsfrågan kan markeras som visad).
+    const existing = db
+      .prepare("select status, acked_at, done_at from nudges where id = ? and user_id = ?")
+      .get(n.id, userId) as
+      | { status: string; acked_at: string | null; done_at: string | null }
+      | undefined;
+    const done = existing?.status === "done";
+    const status = done ? "done" : n.status;
+    const ackedAt = done ? existing!.acked_at : (n.ackedAt ?? null);
+    const doneAt = done ? existing!.done_at : (n.doneAt ?? null);
+
     db.prepare(
       `insert into nudges (id, user_id, activity_id, sent_at, status, acked_at, done_at, follow_up_asked_at)
        values (@id,@user_id,@activity_id,@sent_at,@status,@acked_at,@done_at,@follow_up_asked_at)
@@ -133,9 +148,9 @@ export const repo = {
       user_id: userId,
       activity_id: n.activityId,
       sent_at: n.sentAt,
-      status: n.status,
-      acked_at: n.ackedAt ?? null,
-      done_at: n.doneAt ?? null,
+      status,
+      acked_at: ackedAt,
+      done_at: doneAt,
       follow_up_asked_at: n.followUpAskedAt ?? null,
     });
   },

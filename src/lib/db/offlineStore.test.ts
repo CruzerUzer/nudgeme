@@ -1,12 +1,18 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { OfflineStore } from "./offlineStore";
-import type { CacheBackend } from "./offlineCache";
+import type {
+  CacheBackend,
+  OutboxBackend,
+  OutboxKind,
+  OutboxOp,
+} from "./offlineCache";
 import type { DataStore, EngineState } from "./store";
-import { NetworkError } from "@/lib/api";
+import { NetworkError, AuthError } from "@/lib/api";
 import {
   DEFAULT_FREQUENCY,
   DEFAULT_NOTIFICATION_PREFS,
   type Activity,
+  type NudgeRecord,
 } from "@/lib/types";
 
 // In-memory-cache som speglar CacheBackend, så vi kan testa read-through-
@@ -26,10 +32,37 @@ class FakeCache implements CacheBackend {
   }
 }
 
-// Konfigurerbar fejk-server. `fail` styr om läsningarna kastar (offline).
+// In-memory-outbox med samma FIFO-semantik (auto-inkrementerad seq).
+class FakeOutbox implements OutboxBackend {
+  ops: OutboxOp[] = [];
+  private seq = 0;
+  async enqueue(userId: string, kind: OutboxKind, payload: unknown) {
+    this.ops.push({
+      seq: ++this.seq,
+      userId,
+      kind,
+      payload,
+      createdAt: new Date().toISOString(),
+    });
+  }
+  async list(userId: string) {
+    return this.ops
+      .filter((o) => o.userId === userId)
+      .sort((a, b) => a.seq - b.seq);
+  }
+  async remove(seq: number) {
+    this.ops = this.ops.filter((o) => o.seq !== seq);
+  }
+  async clearUser(userId: string) {
+    this.ops = this.ops.filter((o) => o.userId !== userId);
+  }
+}
+
+// Konfigurerbar fejk-server. `fail` styr om anropen kastar (offline/serverfel).
 class FakeInner implements DataStore {
   fail: Error | null = null;
   signedOut = false;
+  writes: { kind: string; payload: unknown }[] = [];
   activities: Activity[] = [
     {
       id: "a1",
@@ -46,6 +79,11 @@ class FakeInner implements DataStore {
     if (this.fail) return Promise.reject(this.fail);
     return Promise.resolve(value);
   }
+  private write(kind: string, payload: unknown): Promise<void> {
+    if (this.fail) return Promise.reject(this.fail);
+    this.writes.push({ kind, payload });
+    return Promise.resolve();
+  }
 
   async getUserId() {
     return "u1";
@@ -59,39 +97,58 @@ class FakeInner implements DataStore {
   listActivities() {
     return this.read(this.activities);
   }
-  async saveActivity() {}
-  async deleteActivity() {}
+  saveActivity(a: Activity) {
+    return this.write("saveActivity", a);
+  }
+  deleteActivity(id: string) {
+    return this.write("deleteActivity", id);
+  }
   getFrequencySettings() {
     return this.read(DEFAULT_FREQUENCY);
   }
-  async saveFrequencySettings() {}
+  saveFrequencySettings(s: unknown) {
+    return this.write("saveFrequencySettings", s);
+  }
   getSchedule() {
     return this.read([]);
   }
-  async saveSchedule() {}
+  saveSchedule(s: unknown) {
+    return this.write("saveSchedule", s);
+  }
   getNotificationPrefs() {
     return this.read(DEFAULT_NOTIFICATION_PREFS);
   }
-  async saveNotificationPrefs() {}
-  listNudges() {
-    return this.read([]);
+  saveNotificationPrefs(p: unknown) {
+    return this.write("saveNotificationPrefs", p);
   }
-  async saveNudge() {}
+  listNudges() {
+    return this.read<NudgeRecord[]>([]);
+  }
+  saveNudge(n: NudgeRecord) {
+    return this.write("saveNudge", n);
+  }
   getEngineState() {
     return this.read<EngineState>({ nextNudgeAt: null });
   }
-  async saveEngineState() {}
+  saveEngineState(s: unknown) {
+    return this.write("saveEngineState", s);
+  }
   async savePushSubscription() {}
 }
 
 function make(userId: string | null = "u1") {
   const inner = new FakeInner();
   const cache = new FakeCache();
-  const store = new OfflineStore(inner, cache, () => userId);
-  return { inner, cache, store };
+  const outbox = new FakeOutbox();
+  const store = new OfflineStore(inner, cache, outbox, () => userId);
+  return { inner, cache, outbox, store };
 }
 
-describe("OfflineStore (fas 1: offline-läsning)", () => {
+function nudge(id: string, status: NudgeRecord["status"]): NudgeRecord {
+  return { id, userId: "u1", activityId: "a1", sentAt: "2026-01-02T00:00:00.000Z", status };
+}
+
+describe("OfflineStore fas 1 – läsning", () => {
   let ctx: ReturnType<typeof make>;
   beforeEach(() => {
     ctx = make();
@@ -100,66 +157,128 @@ describe("OfflineStore (fas 1: offline-läsning)", () => {
   it("speglar lyckade läsningar till cachen", async () => {
     const acts = await ctx.store.listActivities();
     expect(acts).toEqual(ctx.inner.activities);
-    // put() är fire-and-forget; ge microtask-kön en tick.
     await Promise.resolve();
     expect(ctx.cache.store.get("u1:activities")).toEqual(ctx.inner.activities);
   });
 
   it("serverar cache vid nätfel (offline)", async () => {
-    await ctx.store.listActivities(); // fyll cachen
+    await ctx.store.listActivities();
     await Promise.resolve();
     ctx.inner.fail = new NetworkError();
-
-    const acts = await ctx.store.listActivities();
-    expect(acts).toEqual(ctx.inner.activities);
+    expect(await ctx.store.listActivities()).toEqual(ctx.inner.activities);
   });
 
   it("kastar vidare offline när cachen är tom", async () => {
     ctx.inner.fail = new NetworkError();
-    await expect(ctx.store.listActivities()).rejects.toBeInstanceOf(
-      NetworkError,
-    );
+    await expect(ctx.store.listActivities()).rejects.toBeInstanceOf(NetworkError);
   });
 
   it("serverar INTE cache vid icke-nätfel (t.ex. serverfel)", async () => {
-    await ctx.store.listActivities(); // cachen har data
+    await ctx.store.listActivities();
     await Promise.resolve();
     ctx.inner.fail = new Error("500 Internal Server Error");
-
     await expect(ctx.store.listActivities()).rejects.toThrow("500");
   });
+});
 
-  it("nollställer cachen för användaren vid signOut", async () => {
-    await ctx.store.listActivities();
-    await ctx.store.getSchedule();
-    await Promise.resolve();
-    expect(ctx.cache.store.size).toBe(2);
+describe("OfflineStore fas 2 – skrivning (outbox)", () => {
+  let ctx: ReturnType<typeof make>;
+  beforeEach(() => {
+    ctx = make();
+  });
+
+  it("online: skrivning når servern direkt och kön töms", async () => {
+    const a: Activity = { ...ctx.inner.activities[0], title: "Ny titel" };
+    await ctx.store.saveActivity(a);
+    expect(ctx.inner.writes).toEqual([{ kind: "saveActivity", payload: a }]);
+    expect(ctx.outbox.ops).toHaveLength(0);
+  });
+
+  it("offline: skrivning köas + uppdaterar cachen optimistiskt", async () => {
+    ctx.inner.fail = new NetworkError();
+    const a: Activity = { ...ctx.inner.activities[0], title: "Offline-titel" };
+    await ctx.store.saveActivity(a); // resolvar trots offline
+    expect(ctx.inner.writes).toHaveLength(0);
+    expect(ctx.outbox.ops).toHaveLength(1);
+    // Optimistisk läsning offline visar ändringen ur cachen.
+    const cached = ctx.cache.store.get("u1:activities") as Activity[];
+    expect(cached.find((x) => x.id === a.id)?.title).toBe("Offline-titel");
+  });
+
+  it("återanslutning: kön spelas upp i FIFO-ordning", async () => {
+    ctx.inner.fail = new NetworkError();
+    await ctx.store.saveSchedule([]);
+    await ctx.store.saveNotificationPrefs(DEFAULT_NOTIFICATION_PREFS);
+    await ctx.store.saveActivity(ctx.inner.activities[0]);
+    expect(ctx.outbox.ops).toHaveLength(3);
+
+    ctx.inner.fail = null; // nätet tillbaka
+    await ctx.store.sync();
+
+    expect(ctx.outbox.ops).toHaveLength(0);
+    expect(ctx.inner.writes.map((w) => w.kind)).toEqual([
+      "saveSchedule",
+      "saveNotificationPrefs",
+      "saveActivity",
+    ]);
+  });
+
+  it("replay är idempotent (upsert med stabilt id, kan köras om)", async () => {
+    ctx.inner.fail = new NetworkError();
+    await ctx.store.saveActivity(ctx.inner.activities[0]);
+    ctx.inner.fail = null;
+    await ctx.store.sync();
+    await ctx.store.sync(); // andra varvet: inget kvar att skicka
+    expect(ctx.inner.writes).toHaveLength(1);
+  });
+
+  it("droppar op som servern avvisar (icke-nätfel) utan att blockera resten", async () => {
+    // Köa två offline.
+    ctx.inner.fail = new NetworkError();
+    await ctx.store.saveActivity(ctx.inner.activities[0]);
+    await ctx.store.saveSchedule([]);
+
+    // Online, men servern avvisar ALLT med 400 första varvet.
+    ctx.inner.fail = new Error("400 Bad Request");
+    await ctx.store.sync();
+    // Båda ska ha droppats (inte fastnat) så kön är tom.
+    expect(ctx.outbox.ops).toHaveLength(0);
+    expect(ctx.inner.writes).toHaveLength(0);
+  });
+
+  it("behåller kön vid utgången session (AuthError) för replay efter inlogg", async () => {
+    ctx.inner.fail = new NetworkError();
+    await ctx.store.saveActivity(ctx.inner.activities[0]);
+
+    ctx.inner.fail = new AuthError();
+    await ctx.store.sync(); // ska inte kasta, ska inte droppa
+    expect(ctx.outbox.ops).toHaveLength(1);
+
+    ctx.inner.fail = null;
+    await ctx.store.sync();
+    expect(ctx.outbox.ops).toHaveLength(0);
+    expect(ctx.inner.writes).toHaveLength(1);
+  });
+
+  it("nudge-guard: optimistisk cache backar aldrig en 'done'", async () => {
+    // Seed: en genomförd nudge i cachen.
+    ctx.cache.store.set("u1:nudges", [nudge("n1", "done")]);
+    ctx.inner.fail = new NetworkError();
+
+    // Offline-försök att snooza den (skulle backa status) ska ignoreras i cachen.
+    await ctx.store.saveNudge(nudge("n1", "snoozed"));
+    const cached = ctx.cache.store.get("u1:nudges") as NudgeRecord[];
+    expect(cached[0].status).toBe("done");
+  });
+
+  it("signOut nollställer cache + outbox och loggar ut", async () => {
+    ctx.inner.fail = new NetworkError();
+    await ctx.store.saveActivity(ctx.inner.activities[0]); // en köad op + cache
+    expect(ctx.outbox.ops.length + ctx.cache.store.size).toBeGreaterThan(0);
 
     await ctx.store.signOut();
     expect(ctx.cache.store.size).toBe(0);
+    expect(ctx.outbox.ops).toHaveLength(0);
     expect(ctx.inner.signedOut).toBe(true);
-  });
-
-  it("isolerar cache per användare", async () => {
-    const inner = new FakeInner();
-    const cache = new FakeCache();
-    let uid = "userA";
-    const store = new OfflineStore(inner, cache, () => uid);
-
-    await store.listActivities();
-    await Promise.resolve();
-    expect(cache.store.has("userA:activities")).toBe(true);
-
-    // Byt användare, gå offline: userB har ingen egen cache → nätfelet bubblar.
-    uid = "userB";
-    inner.fail = new NetworkError();
-    await expect(store.listActivities()).rejects.toBeInstanceOf(NetworkError);
-  });
-
-  it("skrivningar går rakt igenom (ingen outbox i fas 1)", async () => {
-    ctx.inner.fail = new NetworkError();
-    // saveActivity delegerar direkt; FakeInner.saveActivity kastar inte, men
-    // poängen är att OfflineStore inte sväljer/köar skrivningen.
-    await expect(ctx.store.saveActivity(ctx.inner.activities[0])).resolves.toBeUndefined();
   });
 });

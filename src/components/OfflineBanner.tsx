@@ -2,11 +2,9 @@ import { useEffect, useState } from "react";
 import { isServerMode } from "@/lib/db";
 
 // Diskret banner när enheten är offline. Appen fungerar ändå — den visar din
-// senast kända data ur cachen (se OfflineStore). I lokalt läge finns ingen
-// server att tappa kontakt med, så bannern visas bara i serverläge.
-//
-// FAS 1: bara läsning. Formuleringen "visar sparad data" — inte "synkas när du
-// är tillbaka" — eftersom offline-skrivningar (outbox) kommer först i fas 2.
+// senast kända data ur cachen och köar dina ändringar (se OfflineStore), som
+// synkas när nätet är tillbaka. I lokalt läge finns ingen server att tappa
+// kontakt med, så bannern visas bara i serverläge.
 
 export default function OfflineBanner() {
   const [offline, setOffline] = useState(
@@ -33,7 +31,7 @@ export default function OfflineBanner() {
         text-parchment-50 backdrop-blur"
       style={{ paddingTop: "calc(env(safe-area-inset-top) + 0.375rem)" }}
     >
-      Offline – visar din sparade data
+      Offline – ändringar sparas och synkas när du är tillbaka
     </div>
   );
 }

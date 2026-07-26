@@ -2,13 +2,19 @@
 
 Ritning för att göra appen användbar utan nät.
 
-**Status: fas 1 (offline-läsning) är implementerad.** `OfflineStore`
-(`src/lib/db/offlineStore.ts`) dekorerar `LocalServerStore` med ett
-read-through-cache i IndexedDB (`offlineCache.ts`), nycklat per userId, plus en
-diskret offline-banner. Appen öppnas nu med din senast kända data offline.
-Skrivningar går fortfarande rakt igenom och failar snällt utan nät – outbox och
-optimistiska skrivningar kommer i **fas 2**. App-skalet och bakgrundsbilderna
-cachas sedan tidigare av service workern.
+**Status: fas 1 (läsning) + fas 2 (skrivning) är implementerade.**
+`OfflineStore` (`src/lib/db/offlineStore.ts`) dekorerar `LocalServerStore`:
+- **Läsning:** read-through-cache i IndexedDB (`offlineCache.ts`), per userId;
+  vid nätfel serveras senast kända data. Diskret offline-banner.
+- **Skrivning:** varje mutation uppdaterar cachen optimistiskt och läggs i en
+  **outbox** (IndexedDB). En `drain()` tömmer kön i FIFO-ordning – online direkt,
+  offline vid `online`/fokus/appstart. Idempotent via upsert + stabila id:n.
+- **Status-guard:** `done` är terminal i `server/src/repo.ts` (`upsertNudge`),
+  så motorns auto-ignorering eller en sen replay aldrig backar en genomförd
+  nudge. Samma guard i den optimistiska cachen.
+
+App-skalet och bakgrundsbilderna cachas sedan tidigare av service workern. Kvar
+är **fas 3**: Background Sync, "Överraska mig" offline och konfliktpolish.
 
 ## Mål
 Appen ska öppnas och vara användbar utan nät: visa *din* data (aktiviteter,
@@ -79,7 +85,7 @@ användarbyte – annars läcker en användares data till nästa.
    offline-banner. Appen öppnas med din riktiga data offline. Skrivningar
    avaktiveras/failar snällt. **✅ Implementerad.**
 2. **Offline-skrivning** – outbox med optimistiska uppdateringar + replay +
-   status-avancerings-guard på servern.
+   status-avancerings-guard på servern. **✅ Implementerad.**
 3. **Robust synk** – konfliktregler, Background Sync, "Överraska mig" offline,
    polish.
 

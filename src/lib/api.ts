@@ -67,6 +67,18 @@ export class NetworkError extends Error {
   }
 }
 
+/**
+ * Sessionen har gått ut (HTTP 401). Skild från NetworkError så outbox-replayn
+ * kan stoppa och behålla kön tills användaren loggat in igen – i stället för
+ * att tappa köade skrivningar.
+ */
+export class AuthError extends Error {
+  constructor() {
+    super("Sessionen har gått ut. Logga in igen.");
+    this.name = "AuthError";
+  }
+}
+
 /** Fetch mot API:t med Bearer-token. Kastar med serverns felmeddelande. */
 export async function apiFetch<T = unknown>(
   path: string,
@@ -88,7 +100,7 @@ export async function apiFetch<T = unknown>(
   }
   if (res.status === 401) {
     clearSession();
-    throw new Error("Sessionen har gått ut. Logga in igen.");
+    throw new AuthError();
   }
   if (!res.ok) {
     let msg = "Något gick fel.";
