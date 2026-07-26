@@ -57,8 +57,13 @@ function nudgeIsDone(n: NudgeRecord | undefined): boolean {
   return n?.status === "done";
 }
 
+/** En-gångs-tag för Background Sync (matchas i public/push-handler.js). */
+const BG_SYNC_TAG = "nudgeme-outbox";
+
 export class OfflineStore implements DataStore {
   private draining: Promise<void> | null = null;
+  /** Snabb hint om att outboxen kan ha ops – styr opportunistisk drain vid läsning. */
+  private maybeQueued = false;
 
   constructor(
     private inner: DataStore,
@@ -68,14 +73,30 @@ export class OfflineStore implements DataStore {
     private currentUserId: () => string | null = apiUserId,
   ) {
     // Spela upp ev. kvarvarande kö när nätet kommer tillbaka eller appen får
-    // fokus igen. Appstart-drainen körs lazily vid första skrivningen/reload.
+    // fokus igen. Appstart-drainen körs direkt (fångar en kö från förra sessionen).
     if (typeof window !== "undefined") {
       const kick = () => void this.sync();
       window.addEventListener("online", kick);
       window.addEventListener("focus", kick);
-      // Försök tömma en ev. kö från förra sessionen direkt.
+      this.maybeQueued = true; // ev. kö från förra sessionen – töm vid start.
       kick();
     }
+    // Background Sync (fas 3): service workern väcker oss och ber om en drain
+    // när nätet är tillbaka, även om appen legat i bakgrunden. Token ligger i
+    // app-lagret (localStorage), så själva uppspelningen sker här, inte i SW:n.
+    if (typeof navigator !== "undefined" && "serviceWorker" in navigator) {
+      navigator.serviceWorker.addEventListener("message", (e: MessageEvent) => {
+        if (e.data?.type === "nudgeme-drain-outbox") void this.sync();
+      });
+    }
+  }
+
+  /** Be service workern spela upp kön när nätet är tillbaka (där API:t finns). */
+  private requestBackgroundSync() {
+    if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return;
+    navigator.serviceWorker.ready
+      .then((reg) => (reg as unknown as { sync?: { register(tag: string): Promise<void> } }).sync?.register(BG_SYNC_TAG))
+      .catch(() => undefined);
   }
 
   /**
@@ -101,6 +122,10 @@ export class OfflineStore implements DataStore {
     try {
       const value = await read();
       if (uid) void this.cache.put(uid, resource, value).catch(() => undefined);
+      // En lyckad läsning bevisar att servern är nåbar – passa på att tömma en
+      // ev. kö. Täpper till fall där `online`-eventet aldrig fyrades (t.ex.
+      // captive portal): kön töms då inom nästa poll/läsning.
+      if (this.maybeQueued) void this.sync();
       return value;
     } catch (err) {
       if (uid && isOffline(err)) {
@@ -131,12 +156,15 @@ export class OfflineStore implements DataStore {
     }
     await applyOptimistic(uid);
     await this.outbox.enqueue(uid, kind, payload);
+    this.maybeQueued = true;
     try {
       await this.drain();
     } catch (err) {
       // Offline eller utgången session: skrivningen ligger tryggt i kön och
       // spelas upp senare. Andra fel bubblar (drain droppar dem själv).
       if (!isOffline(err) && !(err instanceof AuthError)) throw err;
+      // Be SW:n väcka oss för replay när nätet är tillbaka (best-effort).
+      if (isOffline(err)) this.requestBackgroundSync();
     }
   }
 
@@ -156,7 +184,10 @@ export class OfflineStore implements DataStore {
     // (via single-flight-coalescing) också kommer med.
     while (true) {
       const ops = await this.outbox.list(uid);
-      if (ops.length === 0) return;
+      if (ops.length === 0) {
+        this.maybeQueued = false; // kön tom – hoppa över opportunistiska drains.
+        return;
+      }
       for (const op of ops) {
         try {
           await this.dispatch(op.kind, op.payload);

@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { OfflineStore } from "./offlineStore";
+import { NudgeService } from "@/lib/nudge/service";
 import type {
   CacheBackend,
   OutboxBackend,
@@ -280,5 +281,42 @@ describe("OfflineStore fas 2 – skrivning (outbox)", () => {
     expect(ctx.cache.store.size).toBe(0);
     expect(ctx.outbox.ops).toHaveLength(0);
     expect(ctx.inner.signedOut).toBe(true);
+  });
+});
+
+describe("OfflineStore fas 3 – robusthet & Överraska mig offline", () => {
+  it('"Överraska mig" fungerar offline: cachad pool + köad completeOnDemand', async () => {
+    const { store, cache, outbox, inner } = make();
+    // Seed: en aktiv aktivitet + defaults i cachen (som efter en online-session).
+    cache.store.set("u1:activities", inner.activities);
+    cache.store.set("u1:frequency", DEFAULT_FREQUENCY);
+    cache.store.set("u1:nudges", []);
+    inner.fail = new NetworkError(); // offline
+
+    const service = new NudgeService(store);
+    const picked = await service.surprise(new Date());
+    expect(picked?.id).toBe("a1"); // vald lokalt ur cachad pool
+
+    await service.completeOnDemand("a1");
+    // Loggad som köad skrivning + optimistiskt i cachen (status done).
+    expect(outbox.ops.some((o) => o.kind === "saveNudge")).toBe(true);
+    const nudges = cache.store.get("u1:nudges") as NudgeRecord[];
+    expect(
+      nudges.some((n) => n.activityId === "a1" && n.status === "done"),
+    ).toBe(true);
+  });
+
+  it("opportunistisk drain: en lyckad läsning tömmer kön utan online-event", async () => {
+    const { store, inner, outbox } = make();
+    inner.fail = new NetworkError();
+    await store.saveActivity(inner.activities[0]); // köad offline
+    expect(outbox.ops).toHaveLength(1);
+
+    inner.fail = null; // nätet tillbaka men inget "online"-event fyras
+    await store.listActivities(); // en lyckad läsning triggar opportunistisk drain
+    await new Promise((r) => setTimeout(r, 10)); // fire-and-forget → låt den landa
+
+    expect(outbox.ops).toHaveLength(0);
+    expect(inner.writes.map((w) => w.kind)).toContain("saveActivity");
   });
 });

@@ -8,15 +8,16 @@ Framtida arbete som medvetet skjutits upp.
   automatiskt bild på matchande seed-aktivitet. **Väntar på att Adam laddar upp
   bilderna.**
 
-## Full offline (fas 1 + 2 klara – fas 3 kvar)
-- Se `OFFLINE.md` för hela ritningen. Kort: läs-cache (IndexedDB) + outbox för
-  skrivningar som dekorerar `LocalServerStore`.
-- **Fas 1 (läsning) + fas 2 (skrivning) implementerade** (`OfflineStore` +
-  `offlineCache`): read-through-cache per userId, outbox med optimistiska
-  uppdateringar + FIFO-replay vid online/fokus, `done`-terminal-guard på servern
-  (`repo.upsertNudge`), offline-banner.
-- **Kvar (fas 3):** Background Sync API (Android/Chrome), "Överraska mig" offline
-  (återanvänd `selection.ts`/`schedule.ts` lokalt) och konfliktpolish.
+## Full offline (KLAR – alla tre faser)
+- Se `OFFLINE.md` för hela ritningen. `OfflineStore` + `offlineCache` dekorerar
+  `LocalServerStore`.
+- **Fas 1–3 implementerade:** read-through-cache per userId, outbox med
+  optimistiska uppdateringar + FIFO-replay (online/fokus/appstart + opportunistiskt
+  vid lyckad läsning), `done`-terminal-guard på servern (`repo.upsertNudge`),
+  "Överraska mig" offline, Background Sync (`public/push-handler.js` väcker öppna
+  fönster; iOS → nästa öppning), offline-banner.
+- Ev. framtida polish: visa antal köade ändringar i bannern; städa utgångna
+  push-subs; migrera token till IDB om helt-stängd-app-replay i SW önskas.
 
 ## Testinstans – överlever inte reboot (medvetet nedprioriterat)
 - Dev-backend (`:4303`) och `vite preview` (`:4305`) för test-PWA:n körs via

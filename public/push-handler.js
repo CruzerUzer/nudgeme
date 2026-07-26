@@ -27,6 +27,25 @@ self.addEventListener("push", (event) => {
   event.waitUntil(self.registration.showNotification(title, options));
 });
 
+// Background Sync (offline fas 3): när nätet är tillbaka väcker webbläsaren SW:n
+// och fyrar detta event – även om appen legat i bakgrunden. Vi kan inte spela
+// upp de authade skrivningarna här (JWT ligger i localStorage, oåtkomligt i
+// SW:n), så vi väcker istället öppna fönster som tömmer sin outbox. Är inget
+// fönster öppet töms kön vid nästa appöppning (t.ex. iOS, som saknar Background
+// Sync helt). Tag matchar OfflineStore.BG_SYNC_TAG.
+self.addEventListener("sync", (event) => {
+  if (event.tag !== "nudgeme-outbox") return;
+  event.waitUntil(
+    clients
+      .matchAll({ type: "window", includeUncontrolled: true })
+      .then((list) => {
+        for (const client of list) {
+          client.postMessage({ type: "nudgeme-drain-outbox" });
+        }
+      }),
+  );
+});
+
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const url = (event.notification.data && event.notification.data.url) || "/";

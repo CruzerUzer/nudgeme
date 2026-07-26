@@ -2,19 +2,25 @@
 
 Ritning för att göra appen användbar utan nät.
 
-**Status: fas 1 (läsning) + fas 2 (skrivning) är implementerade.**
-`OfflineStore` (`src/lib/db/offlineStore.ts`) dekorerar `LocalServerStore`:
-- **Läsning:** read-through-cache i IndexedDB (`offlineCache.ts`), per userId;
-  vid nätfel serveras senast kända data. Diskret offline-banner.
-- **Skrivning:** varje mutation uppdaterar cachen optimistiskt och läggs i en
-  **outbox** (IndexedDB). En `drain()` tömmer kön i FIFO-ordning – online direkt,
-  offline vid `online`/fokus/appstart. Idempotent via upsert + stabila id:n.
-- **Status-guard:** `done` är terminal i `server/src/repo.ts` (`upsertNudge`),
-  så motorns auto-ignorering eller en sen replay aldrig backar en genomförd
-  nudge. Samma guard i den optimistiska cachen.
+**Status: ALLA TRE FASER implementerade.** `OfflineStore`
+(`src/lib/db/offlineStore.ts`) dekorerar `LocalServerStore`:
+- **Läsning (fas 1):** read-through-cache i IndexedDB (`offlineCache.ts`), per
+  userId; vid nätfel serveras senast kända data. Diskret offline-banner.
+- **Skrivning (fas 2):** varje mutation uppdaterar cachen optimistiskt och läggs
+  i en **outbox** (IndexedDB). En `drain()` tömmer kön i FIFO-ordning – online
+  direkt, offline vid `online`/fokus/appstart. Idempotent via upsert + stabila
+  id:n. `done` är terminal i `server/src/repo.ts` (`upsertNudge`), så motorns
+  auto-ignorering eller en sen replay aldrig backar en genomförd nudge (samma
+  guard i den optimistiska cachen).
+- **Robusthet + Background Sync (fas 3):** "Överraska mig" fungerar offline (ren
+  `selection.ts`-urval över cachad pool + köad `completeOnDemand`). En lyckad
+  läsning tömmer kön opportunistiskt (fångar fall där `online`-eventet aldrig
+  fyras, t.ex. captive portal). Background Sync API (`public/push-handler.js`):
+  SW:n väcks vid återanslutning och ber öppna fönster tömma sin outbox – token
+  ligger i app-lagret så uppspelningen sker där, inte i SW:n. iOS saknar
+  Background Sync → kön töms vid nästa öppning.
 
-App-skalet och bakgrundsbilderna cachas sedan tidigare av service workern. Kvar
-är **fas 3**: Background Sync, "Överraska mig" offline och konfliktpolish.
+App-skalet och bakgrundsbilderna cachas sedan tidigare av service workern.
 
 ## Mål
 Appen ska öppnas och vara användbar utan nät: visa *din* data (aktiviteter,
@@ -87,7 +93,7 @@ användarbyte – annars läcker en användares data till nästa.
 2. **Offline-skrivning** – outbox med optimistiska uppdateringar + replay +
    status-avancerings-guard på servern. **✅ Implementerad.**
 3. **Robust synk** – konfliktregler, Background Sync, "Överraska mig" offline,
-   polish.
+   polish. **✅ Implementerad.**
 
 ## Risker & kantfall att bevaka
 - Nudge-motorns auto-ignorering vs offline-"done" (fas 2/3, kärnkomplexiteten).
