@@ -15,6 +15,7 @@ import ForceChangePassword from "./screens/ChangePassword";
 import Background from "./components/Background";
 import BrandMark from "./components/BrandMark";
 import TestBadge from "./components/TestBadge";
+import OfflineBanner from "./components/OfflineBanner";
 import { isServerMode } from "./lib/db";
 import { getToken, getMustChange } from "./lib/api";
 
@@ -51,6 +52,7 @@ export default function App() {
   return (
     <>
       {IS_TEST && <TestBadge />}
+      <OfflineBanner />
       {content}
     </>
   );

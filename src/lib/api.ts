@@ -54,6 +54,31 @@ export function clearSession() {
   }
 }
 
+/**
+ * Nätfel (offline, DNS, avbrott) — till skillnad från ett HTTP-svar med
+ * felstatus. Låter offline-lagret skilja "ingen nät" (servera cache) från ett
+ * äkta serverfel (som ska propageras).
+ */
+export class NetworkError extends Error {
+  constructor(cause?: unknown) {
+    super("Ingen nätverksanslutning.");
+    this.name = "NetworkError";
+    if (cause !== undefined) (this as { cause?: unknown }).cause = cause;
+  }
+}
+
+/**
+ * Sessionen har gått ut (HTTP 401). Skild från NetworkError så outbox-replayn
+ * kan stoppa och behålla kön tills användaren loggat in igen – i stället för
+ * att tappa köade skrivningar.
+ */
+export class AuthError extends Error {
+  constructor() {
+    super("Sessionen har gått ut. Logga in igen.");
+    this.name = "AuthError";
+  }
+}
+
 /** Fetch mot API:t med Bearer-token. Kastar med serverns felmeddelande. */
 export async function apiFetch<T = unknown>(
   path: string,
@@ -64,10 +89,18 @@ export async function apiFetch<T = unknown>(
   const token = getToken();
   if (token) headers.set("Authorization", `Bearer ${token}`);
 
-  const res = await fetch(`${apiBase()}${path}`, { ...init, headers });
+  let res: Response;
+  try {
+    res = await fetch(`${apiBase()}${path}`, { ...init, headers });
+  } catch (e) {
+    // fetch() rejectar (TypeError) när nätet inte går att nå — inte samma sak
+    // som ett HTTP-felsvar. Markera som NetworkError så anropare kan falla
+    // tillbaka på cache.
+    throw new NetworkError(e);
+  }
   if (res.status === 401) {
     clearSession();
-    throw new Error("Sessionen har gått ut. Logga in igen.");
+    throw new AuthError();
   }
   if (!res.ok) {
     let msg = "Något gick fel.";

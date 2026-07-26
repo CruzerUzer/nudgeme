@@ -1,8 +1,26 @@
 # Plan: Full offline för NudgeMe
 
-Ritning för att göra appen användbar utan nät. **Inget av detta är implementerat
-ännu** – idag cachas app-skalet och bakgrundsbilderna av service workern, och
-appen hänger inte längre offline, men *din data* hämtas fortfarande live.
+Ritning för att göra appen användbar utan nät.
+
+**Status: ALLA TRE FASER implementerade.** `OfflineStore`
+(`src/lib/db/offlineStore.ts`) dekorerar `LocalServerStore`:
+- **Läsning (fas 1):** read-through-cache i IndexedDB (`offlineCache.ts`), per
+  userId; vid nätfel serveras senast kända data. Diskret offline-banner.
+- **Skrivning (fas 2):** varje mutation uppdaterar cachen optimistiskt och läggs
+  i en **outbox** (IndexedDB). En `drain()` tömmer kön i FIFO-ordning – online
+  direkt, offline vid `online`/fokus/appstart. Idempotent via upsert + stabila
+  id:n. `done` är terminal i `server/src/repo.ts` (`upsertNudge`), så motorns
+  auto-ignorering eller en sen replay aldrig backar en genomförd nudge (samma
+  guard i den optimistiska cachen).
+- **Robusthet + Background Sync (fas 3):** "Överraska mig" fungerar offline (ren
+  `selection.ts`-urval över cachad pool + köad `completeOnDemand`). En lyckad
+  läsning tömmer kön opportunistiskt (fångar fall där `online`-eventet aldrig
+  fyras, t.ex. captive portal). Background Sync API (`public/push-handler.js`):
+  SW:n väcks vid återanslutning och ber öppna fönster tömma sin outbox – token
+  ligger i app-lagret så uppspelningen sker där, inte i SW:n. iOS saknar
+  Background Sync → kön töms vid nästa öppning.
+
+App-skalet och bakgrundsbilderna cachas sedan tidigare av service workern.
 
 ## Mål
 Appen ska öppnas och vara användbar utan nät: visa *din* data (aktiviteter,
@@ -71,11 +89,11 @@ användarbyte – annars läcker en användares data till nästa.
 ## Faser (ökande komplexitet, varje fas är i sig värdefull)
 1. **Offline-läsning** *(störst nytta, lägst risk)* – read-through-cache +
    offline-banner. Appen öppnas med din riktiga data offline. Skrivningar
-   avaktiveras/failar snällt.
+   avaktiveras/failar snällt. **✅ Implementerad.**
 2. **Offline-skrivning** – outbox med optimistiska uppdateringar + replay +
-   status-avancerings-guard på servern.
+   status-avancerings-guard på servern. **✅ Implementerad.**
 3. **Robust synk** – konfliktregler, Background Sync, "Överraska mig" offline,
-   polish.
+   polish. **✅ Implementerad.**
 
 ## Risker & kantfall att bevaka
 - Nudge-motorns auto-ignorering vs offline-"done" (fas 2/3, kärnkomplexiteten).

@@ -1,9 +1,11 @@
 import type { DataStore } from "./store";
 import { LocalStore } from "./local";
 import { LocalServerStore } from "./localServer";
+import { OfflineStore } from "./offlineStore";
 
 // Väljer datakälla:
-//   1. VITE_API_URL satt  -> LocalServerStore (egen server + inloggning)
+//   1. VITE_API_URL satt  -> LocalServerStore (egen server + inloggning),
+//      inlindad i OfflineStore (read-through-cache så appen fungerar offline)
 //   2. annars             -> LocalStore (localStorage, kör utan backend)
 
 let store: DataStore | null = null;
@@ -18,7 +20,9 @@ export function isServerMode(): boolean {
 
 export function getStore(): DataStore {
   if (store) return store;
-  store = isServerMode() ? new LocalServerStore() : new LocalStore();
+  store = isServerMode()
+    ? new OfflineStore(new LocalServerStore())
+    : new LocalStore();
   return store;
 }
 
