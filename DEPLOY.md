@@ -111,6 +111,21 @@ sudo certbot --nginx -d nudgeme.faris.se
 - **Prod-branch:** VM:en står på `main` och gör `git pull` – merga till `main`
   och pusha innan `update-nudgeme.sh` körs.
 
+> ⚠️ **`main` har skrivits om (force-push 2026-07-27) — VM:en behöver en
+> engångsåtgärd vid NÄSTA deploy.** Historiken skrevs om för att ta bort ett
+> användarnamn ur två commit-meddelanden, så alla commit-hashar från den gamla
+> `08df05d` och framåt är utbytta. VM:ens klon har kvar den gamla historiken, så
+> ett vanligt `git pull` slutar i "divergent branches" och `update-nudgeme.sh`
+> stannar. Kör detta på VM:en en gång först (den är bara en klon – inget eget
+> arbete finns där):
+> ```bash
+> ssh ubuntu@potterytracker.faris.se
+> cd <repo-katalogen> && git fetch origin && git reset --hard origin/main
+> ```
+> Därefter fungerar `git pull` som vanligt igen. **Lärdom:** skriv aldrig om
+> publicerad historik utan att räkna med att prod-klonen måste rätas upp för
+> hand — regeln om användarnamn i `CLAUDE.md` finns för att slippa det här.
+
 ### Om-koda befintliga bakgrundsbilder på prod (engångs)
 Nya uppladdningar skalas i `server/src/backgrounds.ts` (1280 px, WebP q58), men
 redan uppladdade bilder ligger kvar i sin gamla storlek. För att krympa ett
