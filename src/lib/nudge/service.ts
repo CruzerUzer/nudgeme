@@ -3,20 +3,36 @@ import type { Activity, NudgeRecord } from "@/lib/types";
 import { selectNudge } from "./selection";
 import { nextNudgeTimestamp } from "./schedule";
 
-// Klientsidans nudge-motor. Speglar det som Edge Function + pg_cron gör på
-// servern i produktionsläge — men gör NudgeMe fullt körbar lokalt utan backend.
-// Kärnregler: högst en aktiv (oackad) nudge i taget; obesvarade nudges tjatar
-// aldrig men auto-ignoreras när nästa är due; uppföljningsfråga endast efter
-// ett aktivt "ska göra".
+// Klientsidans nudge-motor. Speglar serverns motor (server/src/engine.ts) — men
+// gör NudgeMe fullt körbar lokalt utan backend. Livscykelreglerna delas via
+// scenariotabellen i ./lifecycle.cases.ts; ändra aldrig den ena motorn utan den
+// andra. Kärnregler: bara en nudge du engagerat dig i blockerar en ny; obesvarade
+// nudges tjatar aldrig men auto-ignoreras när nästa är due; uppföljningsfråga
+// endast efter ett aktivt "ska göra".
 
 const uid = () =>
   (crypto.randomUUID?.() ?? Math.random().toString(36).slice(2)) as string;
 
-/** En nudge som väntar på användarens svar. */
-const PENDING: ReadonlySet<NudgeRecord["status"]> = new Set([
+// Två skilda frågor om status — håll dem isär. Att blanda ihop dem var orsaken
+// till buggen där en orörd nudge låg kvar i dagar (se CLAUDE.md → Nudge-livscykeln).
+/** Visas som "aktuell nudge" i appen. En orörd `sent` hör hit. */
+const VISIBLE: ReadonlySet<NudgeRecord["status"]> = new Set([
   "sent",
   "acked",
   "committed",
+]);
+/**
+ * Användaren har aktivt engagerat sig → blockerar en ny nudge tills hon gör klart
+ * eller snoozar. En orörd `sent` hör INTE hit: den ersätts när nästa är due.
+ */
+const ENGAGED: ReadonlySet<NudgeRecord["status"]> = new Set([
+  "acked",
+  "committed",
+]);
+/** Auto-ignoreras när en ny nudge föreslås (tjatar aldrig). */
+const AUTO_IGNORED: ReadonlySet<NudgeRecord["status"]> = new Set([
+  "sent",
+  "snoozed",
 ]);
 
 export interface NudgeView {
@@ -37,7 +53,7 @@ export class NudgeService {
   async currentNudge(now = new Date()): Promise<NudgeView | null> {
     const nudges = await this.store.listNudges();
     const pending = nudges
-      .filter((n) => PENDING.has(n.status))
+      .filter((n) => VISIBLE.has(n.status))
       .sort((a, b) => b.sentAt.localeCompare(a.sentAt))[0];
     if (!pending) return null;
     const activity = (await this.store.listActivities()).find(
@@ -62,10 +78,19 @@ export class NudgeService {
    */
   async refresh(now = new Date()): Promise<NudgeView | null> {
     const prefs = await this.store.getNotificationPrefs();
-    if (prefs.paused) return this.currentNudge(now);
-
     const engine = await this.store.getEngineState();
     const schedule = await this.store.getSchedule();
+    const due =
+      !!engine.nextNudgeAt &&
+      new Date(engine.nextNudgeAt).getTime() <= now.getTime();
+
+    if (prefs.paused) {
+      // Pausad: generera aldrig. Men ett tillfälle som passerat under pausen
+      // skjuts fram, annars smäller en nudge direkt vid avpausning. Samma regel
+      // som serverns processUser.
+      if (due) await this.scheduleNext(now, schedule);
+      return this.currentNudge(now);
+    }
 
     // Allra första gången: bjud direkt på en välkomnande nudge och schemalägg
     // sedan nästa. Annars skulle appen mötas av ett tomt tillstånd fram till
@@ -76,16 +101,17 @@ export class NudgeService {
       return created ?? this.currentNudge(now);
     }
 
-    const due = new Date(engine.nextNudgeAt).getTime() <= now.getTime();
     if (!due) return this.currentNudge(now);
 
     // En nudge som användaren engagerat sig i (acked/committed) ligger kvar tills
     // hon gör klart eller snoozar – ingen ny byter ut den. En orörd "sent"
     // räknas inte som aktiv: den auto-ignoreras och ersätts av en ny.
-    const current = await this.currentNudge(now);
-    if (current && current.record.status !== "sent") {
+    // Vi tittar på HELA historiken, inte bara den senaste synliga, så att regeln
+    // blir identisk med serverns.
+    const nudges = await this.store.listNudges();
+    if (nudges.some((n) => ENGAGED.has(n.status))) {
       await this.scheduleNext(now, schedule);
-      return current;
+      return this.currentNudge(now);
     }
 
     const created = await this.generate(now);
@@ -114,19 +140,26 @@ export class NudgeService {
     // blir automatiskt ignorerad när nästa aktivitet föreslås. Aktivt engagerade
     // (acked/committed) rörs inte här – de har redan behållits i refresh().
     for (const n of history) {
-      if (n.status === "snoozed" || n.status === "sent") {
+      if (AUTO_IGNORED.has(n.status)) {
         await this.store.saveNudge({ ...n, status: "ignored" });
       }
     }
+    // Urvalet måste se historiken EFTER auto-ignoreringen: en nudge du aldrig såg
+    // ska inte förbruka frekvenstaket. Med den gamla (lästa) historiken räknades
+    // den nyss ignorerade som "sent" och åt upp taket, vilket kunde tömma poolen
+    // helt när bara en aktivitet var valbar → varannan nudge uteblev.
+    const effective = history.map((n) =>
+      AUTO_IGNORED.has(n.status) ? { ...n, status: "ignored" as const } : n,
+    );
     // Undvik att direkt upprepa samma aktivitet: exkludera den senaste nudgens
     // aktivitet (den som just ersätts) om det finns något annat att välja.
-    const prev = [...history].sort((a, b) =>
+    const prev = [...effective].sort((a, b) =>
       b.sentAt.localeCompare(a.sentAt),
     )[0];
     const activity = selectNudge(
       activities,
       settings,
-      history,
+      effective,
       now,
       Math.random,
       prev?.activityId,

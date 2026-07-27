@@ -54,6 +54,28 @@ export function defaultWeekSchedule(): DaySchedule[] {
 const COUNTS_TOWARD_CAP = new Set(["sent", "acked", "committed", "done", "snoozed"]);
 const DAY_MS = 86_400_000;
 
+// Två skilda frågor om status — håll dem isär. Att blanda ihop dem var orsaken
+// till buggen där en orörd nudge låg kvar i dagar (se CLAUDE.md → Nudge-livscykeln).
+/** Visas som "aktuell nudge" i appen. En orörd `sent` hör hit. */
+export const VISIBLE_STATUSES: ReadonlySet<string> = new Set([
+  "sent",
+  "acked",
+  "committed",
+]);
+/**
+ * Användaren har aktivt engagerat sig → blockerar en ny nudge tills hon gör
+ * klart eller snoozar. En orörd `sent` hör INTE hit: den ersätts när nästa är due.
+ */
+export const ENGAGED_STATUSES: ReadonlySet<string> = new Set([
+  "acked",
+  "committed",
+]);
+/** Auto-ignoreras när en ny nudge föreslås (tjatar aldrig). */
+export const AUTO_IGNORED_STATUSES: ReadonlySet<string> = new Set([
+  "sent",
+  "snoozed",
+]);
+
 export function selectEligible(
   activities: Activity[],
   history: NudgeRow[],
