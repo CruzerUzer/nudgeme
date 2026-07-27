@@ -17,6 +17,11 @@ Arbetsregler och projektkontext för Claude Code i det här repot.
   (typecheck + test) kör `npm run build:test` för att bygga in ändringen i test-PWA:n;
   `vite preview` (:4305, exponerad via tailscale :8443) servar `dist/` live från disk
   så den uppdateras direkt. Bygge och lokala tester får alltid köras fritt.
+- **Håll dokumentationen levande.** När du lär dig något icke-uppenbart —
+  en fälla, ett arbetsflöde, en gotcha — skriv in det direkt i rätt dokument
+  (CLAUDE.md för arbetsregler/konventioner, `DEPLOY.md` för drift/test/deploy,
+  `TODO.md` för uppskjutet arbete) i samma veva, utan att vänta på att bli ombedd.
+  Bättre en rad för mycket än att samma misstag upprepas.
 - Svara på svenska. Förklara tekniska begrepp kort i förbifarten.
 
 ## Vad NudgeMe är
@@ -47,6 +52,15 @@ UI-ändringar: kör dev-servern och ta gärna en skärmbild (mobilvy 390px).
 > typerna. **För att uppdatera testinstansen (tillåtet fritt, ingen fråga behövs):**
 > kör `npm run build:test` (server-läge + test-branding) så testinstansen förblir
 > korrekt och får den nya ändringen direkt.
+>
+> ⚠️ **Rör ändringen `server/`? Då räcker INTE `build:test`.** Test-backenden
+> (:4303) körs med `tsx` **utan watch**, så nya routes/serverlogik slår inte
+> igenom förrän backenden startas om manuellt. `build:test` bygger bara om
+> *frontend* — glömmer du backend-omstarten anropar den nya frontend-koden routes
+> som inte finns i den körande processen, och det ser ut som att "inget händer"
+> (t.ex. en knapp som inte gör något). Omstart står i `DEPLOY.md` (döda ALDRIG
+> med `pkill -f "tsx src/index.ts"` — mönstret matchar ditt eget skalkommando;
+> rikta mot PID:t som lyssnar på `:4303`).
 
 ## Arkitektur
 
