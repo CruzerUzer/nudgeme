@@ -1,13 +1,21 @@
 import { randomUUID } from "node:crypto";
 import webpush from "web-push";
 import { repo } from "./repo.js";
-import { selectEligible, nextTimestamp, type Activity, type NudgeRow } from "./nudge.js";
+import {
+  selectEligible,
+  nextTimestamp,
+  AUTO_IGNORED_STATUSES,
+  ENGAGED_STATUSES,
+  VISIBLE_STATUSES,
+  type Activity,
+  type NudgeRow,
+} from "./nudge.js";
 
 // Serverns nudge-motor. Kör periodiskt (tick) och genererar nudges enligt varje
 // användares schema. Motsvarar frontendens NudgeService men är den enda källan
 // som genererar schemalagda nudges i serverläge (klienten bara läser/kvitterar).
-
-const PENDING = new Set(["sent", "acked", "committed"]);
+// Livscykelreglerna delas med klientmotorn via scenariotabellen i
+// src/lib/nudge/lifecycle.cases.ts — ändra aldrig den ena motorn utan den andra.
 
 let pushReady = false;
 const vapidPublic = process.env.VAPID_PUBLIC_KEY;
@@ -30,7 +38,8 @@ function reschedule(userId: string, now: Date) {
 
 function generate(userId: string, now: Date): boolean {
   const activities = repo.listActivities(userId) as unknown as Activity[];
-  const history = repo.listNudges(userId).map(
+  const rows = repo.listNudges(userId);
+  const history = rows.map(
     (n): NudgeRow => ({ id: n.id, activity_id: n.activityId, sent_at: n.sentAt, status: n.status }),
   );
   // listNudges är sorterad nyast först → [0] är den nudge som just ersätts.
@@ -38,13 +47,20 @@ function generate(userId: string, now: Date): boolean {
   // En orörd nudge tjatar aldrig: en tidigare "sent" (aldrig ackad) och en
   // snoozad blir automatiskt ignorerade när en ny föreslås. Aktivt engagerade
   // (committed/acked) rörs inte här – de blockerar redan i processUser.
-  for (const n of repo.listNudges(userId)) {
-    if (n.status === "snoozed" || n.status === "sent") {
+  for (const n of rows) {
+    if (AUTO_IGNORED_STATUSES.has(n.status)) {
       repo.upsertNudge(userId, { ...n, status: "ignored" });
     }
   }
+  // Urvalet måste se historiken EFTER auto-ignoreringen: en nudge du aldrig såg
+  // ska inte förbruka frekvenstaket. Med den gamla (lästa) historiken räknades
+  // den nyss ignorerade som "sent" och åt upp taket, vilket kunde tömma poolen
+  // helt när bara en aktivitet var valbar → varannan nudge uteblev.
+  const effective = history.map((h) =>
+    AUTO_IGNORED_STATUSES.has(h.status) ? { ...h, status: "ignored" } : h,
+  );
   const settings = repo.getFrequency(userId) as any;
-  const activity = selectEligible(activities, history, settings, now, Math.random, prevActivityId);
+  const activity = selectEligible(activities, effective, settings, now, Math.random, prevActivityId);
   if (!activity) return false;
 
   repo.upsertNudge(userId, {
@@ -93,7 +109,7 @@ export function initUserEngine(userId: string, now = new Date()) {
  */
 export function triggerNudge(userId: string, now = new Date()) {
   for (const n of repo.listNudges(userId)) {
-    if (["sent", "acked", "committed"].includes(n.status)) {
+    if (VISIBLE_STATUSES.has(n.status)) {
       repo.upsertNudge(userId, { ...n, status: "ignored" });
     }
   }
@@ -115,9 +131,7 @@ function processUser(userId: string, now: Date) {
   // fram nästa kontroll. En orörd "sent" räknas INTE som aktiv: den ersätts av
   // en ny när nästa är due (generate auto-ignorerar den).
   const nudges = repo.listNudges(userId);
-  const engaged = nudges.find((n) =>
-    ["acked", "committed"].includes(n.status),
-  );
+  const engaged = nudges.find((n) => ENGAGED_STATUSES.has(n.status));
   if (engaged) {
     reschedule(userId, now);
     return;
