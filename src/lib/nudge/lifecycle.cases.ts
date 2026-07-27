@@ -78,6 +78,18 @@ export const LIFECYCLE_CASES: LifecycleCase[] = [
     after: ["committed"],
   },
   {
+    // AVSIKTLIGT och beslutat av Adam: har användaren tryckt "Ja, jag gör det"
+    // kommer ingen ny nudge förrän hon tryckt "Klart!" eller "Inte just nu" —
+    // hur lång tid som helst. Appen ska inte tjata över ett löfte hon gett.
+    // Det HÄR fallet finns för att fånga en välmenande "fix" som lägger in en
+    // timeout/auto-förfallodatum. Blir det här testet rött: fixa inte testet.
+    name: "åtagande blockerar även långt senare (en månad) – ingen timeout",
+    history: [{ activityId: "a1", hoursAgo: 24 * 30, status: "committed" }],
+    due: true,
+    createsNew: false,
+    after: ["committed"],
+  },
+  {
     name: "snoozad ersätts och auto-ignoreras",
     history: [{ activityId: "a1", hoursAgo: 24, status: "snoozed" }],
     due: true,

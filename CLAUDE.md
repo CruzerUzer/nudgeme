@@ -115,6 +115,18 @@ Håll de tre statusmängderna isär (de finns i båda motorerna). Att `VISIBLE` 
 
 En orörd `sent` är alltså synlig men blockerar inte — den *ersätts* när nästa är due.
 
+✅ **Ett åtagande blockerar utan tidsgräns — det är RÄTT beteende (Adams beslut).**
+Har användaren tryckt "Ja, jag gör det" ska ingen ny nudge komma förrän hon
+tryckt **"Klart!"** eller **"Inte just nu"**. Det gäller hur länge som helst: en
+`committed` från förra månaden blockerar fortfarande. Appen ska inte tjata över
+ett löfte hon redan gett.
+
+> Kommer någon och rapporterar "appen har slutat nudga" — kontrollera först om det
+> finns en obesvarad `acked`/`committed`. Är det så: **lägg inte in någon timeout
+> eller auto-förfallodatum.** Det ser ut som samma bugg som en orörd `sent` som
+> fastnade, men är det inte. Fallet *"åtagande blockerar även långt senare"* i
+> `lifecycle.cases.ts` finns just för att fånga den "fixen".
+
 ⚠️ **Auto-ignorering måste synas i urvalet.** `generate()` läser historiken,
 skriver `ignored` och väljer sedan aktivitet. Skicka den **uppdaterade**
 historiken till urvalet — annars räknas den nyss ignorerade fortfarande som
