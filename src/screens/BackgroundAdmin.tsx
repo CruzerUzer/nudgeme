@@ -7,6 +7,7 @@ import {
   createPack,
   deletePack,
   uploadImage,
+  moveImage,
   bgUrl,
   BG_SCREENS,
   type BgPack,
@@ -68,6 +69,20 @@ export default function BackgroundAdmin() {
     await reload();
   }
 
+  async function onMove(packId: string, from: string, to: string) {
+    setError(null);
+    setBusy(`${packId}:${from}`);
+    try {
+      await moveImage(packId, from, to);
+      await refresh();
+      await reload();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Kunde inte byta plats.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
   return (
     <div className="space-y-5">
       <h1 className="text-2xl text-moss-700">Bakgrundspaket</h1>
@@ -111,9 +126,9 @@ export default function BackgroundAdmin() {
               const img = pack.images.find((i) => i.screen === key);
               const isBusy = busy === `${pack.id}:${key}`;
               return (
-                <label
+                <div
                   key={key}
-                  className="relative flex h-24 cursor-pointer items-end overflow-hidden rounded-2xl border border-parchment-200 bg-parchment-50"
+                  className="relative flex h-24 items-end overflow-hidden rounded-2xl border border-parchment-200 bg-parchment-50"
                   style={
                     img
                       ? {
@@ -124,25 +139,50 @@ export default function BackgroundAdmin() {
                       : undefined
                   }
                 >
-                  <span
-                    className={`w-full px-2 py-1 text-xs font-semibold ${
-                      img
-                        ? "bg-moss-900/55 text-parchment-50"
-                        : "text-moss-500"
-                    }`}
-                  >
-                    {isBusy ? "Laddar…" : img ? `${label} ✓` : `${label} – ladda upp`}
-                  </span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={(e) => {
-                      const f = e.target.files?.[0];
-                      if (f) void onUpload(pack.id, key, f);
-                    }}
-                  />
-                </label>
+                  <label className="absolute inset-0 flex cursor-pointer items-end">
+                    <span
+                      className={`w-full px-2 py-1 text-xs font-semibold ${
+                        img ? "bg-moss-900/55 text-parchment-50" : "text-moss-500"
+                      }`}
+                    >
+                      {isBusy ? "Laddar…" : img ? `${label} ✓` : `${label} – ladda upp`}
+                    </span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) void onUpload(pack.id, key, f);
+                      }}
+                    />
+                  </label>
+                  {img && (
+                    <select
+                      aria-label={`Byt plats för ${label}`}
+                      className="absolute right-1 top-1 z-10 max-w-[6.5rem] rounded-lg border border-parchment-100/40 bg-moss-900/70 px-1 py-0.5 text-xs font-semibold text-parchment-50 outline-none focus:ring-2 focus:ring-gold-500"
+                      value=""
+                      disabled={isBusy}
+                      onChange={(e) => {
+                        const to = e.target.value;
+                        e.target.value = "";
+                        if (to) void onMove(pack.id, key, to);
+                      }}
+                    >
+                      <option value="" disabled>
+                        Byt plats…
+                      </option>
+                      {BG_SCREENS.filter((s) => s.key !== key).map((s) => {
+                        const target = pack.images.find((i) => i.screen === s.key);
+                        return (
+                          <option key={s.key} value={s.key}>
+                            {target ? "↔" : "→"} {s.label}
+                          </option>
+                        );
+                      })}
+                    </select>
+                  )}
+                </div>
               );
             })}
           </div>

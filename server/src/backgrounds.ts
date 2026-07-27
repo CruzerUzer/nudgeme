@@ -167,6 +167,38 @@ export async function addImage(packId: string, screen: string, buffer: Buffer) {
   return { id, screen };
 }
 
+/**
+ * Byt plats på bilder mellan två skärm-slots i ett paket. Om målskärmen har en
+ * bild byter de plats; annars flyttas bilden dit och källan blir tom. Sker i en
+ * transaktion med ett temporärt screen-värde för att kringgå unique(pack_id,
+ * screen) under själva bytet.
+ */
+export function moveImage(packId: string, fromScreen: string, toScreen: string) {
+  if (!SCREENS.includes(fromScreen as Screen) || !SCREENS.includes(toScreen as Screen))
+    throw new Error("Ogiltig skärm.");
+  if (fromScreen === toScreen) return { ok: true };
+
+  const from = db
+    .prepare("select id from background_images where pack_id=? and screen=?")
+    .get(packId, fromScreen) as { id: string } | undefined;
+  if (!from) throw new Error("Ingen bild att flytta.");
+  const to = db
+    .prepare("select id from background_images where pack_id=? and screen=?")
+    .get(packId, toScreen) as { id: string } | undefined;
+
+  const set = db.prepare("update background_images set screen=? where id=?");
+  db.transaction(() => {
+    if (to) {
+      set.run("__tmp", from.id); // parkera källan så målet kan ta dess plats
+      set.run(fromScreen, to.id);
+      set.run(toScreen, from.id);
+    } else {
+      set.run(toScreen, from.id);
+    }
+  })();
+  return { ok: true };
+}
+
 export function deletePack(packId: string) {
   const imgs = db
     .prepare("select path from background_images where pack_id = ?")
