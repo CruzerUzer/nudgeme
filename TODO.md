@@ -2,17 +2,6 @@
 
 Framtida arbete som medvetet skjutits upp.
 
-## Ett användarnamn ligger kvar i gammal git-historik (beslut hos Adam)
-- Commit `08df05d` (i brödtexten, tillsammans med användarens egen
-  aktivitetstitel) och `270da67` (i rubriken) namnger en riktig användare. Nyare
-  arbete är städat och regeln står nu i CLAUDE.md, men de två gamla commitsen är
-  redan pushade.
-- Att få bort dem kräver omskrivning av publicerad historik + `push --force`.
-  **Konsekvens att väga in:** prod-VM:en står på `main` och gör `git pull`
-  (se `DEPLOY.md`) — efter en force-push spårar den ur och behöver handpåläggning
-  innan nästa deploy. Alla commit-hashar efter brytpunkten byts också ut.
-- Är repot privat kan exponeringen vara acceptabel som den är. **Adam avgör.**
-
 ## Default-bilder – lägg in filerna
 - Infrastrukturen är klar: lägg bildfiler i `server/assets/defaults/` namngivna
   efter aktivitetens slug (se den mappens `README.md`), så får nya konton
