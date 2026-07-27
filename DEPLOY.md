@@ -111,20 +111,23 @@ sudo certbot --nginx -d nudgeme.faris.se
 - **Prod-branch:** VM:en står på `main` och gör `git pull` – merga till `main`
   och pusha innan `update-nudgeme.sh` körs.
 
-> ⚠️ **`main` har skrivits om (force-push 2026-07-27) — VM:en behöver en
-> engångsåtgärd vid NÄSTA deploy.** Historiken skrevs om för att ta bort ett
-> användarnamn ur två commit-meddelanden, så alla commit-hashar från den gamla
-> `08df05d` och framåt är utbytta. VM:ens klon har kvar den gamla historiken, så
-> ett vanligt `git pull` slutar i "divergent branches" och `update-nudgeme.sh`
-> stannar. Kör detta på VM:en en gång först (den är bara en klon – inget eget
-> arbete finns där):
+> ℹ️ **`main` skrevs om 2026-07-27 (force-push) — HANTERAT, inget att göra.**
+> Historiken skrevs om för att ta bort ett användarnamn ur två commit-meddelanden,
+> så alla hashar från den punkten och framåt byttes ut. VM:en rätades upp samma
+> dag (`git fetch` + `git reset --hard origin/main`) och deployades därefter
+> normalt. Står VM:en på `f808fb2` eller senare är allt i sin ordning.
+>
+> **Lärdomen, om det någonsin upprepas:** en force-push av `main` gör att VM:ens
+> klon divergerar och `update-nudgeme.sh` stannar på `git pull` ("divergent
+> branches"). Fixen är engångs och ofarlig — VM:en är bara en klon utan eget
+> arbete (`server/package-lock.json` kan se ändrad ut; den genereras om av
+> `npm install`):
 > ```bash
 > ssh ubuntu@potterytracker.faris.se
-> cd <repo-katalogen> && git fetch origin && git reset --hard origin/main
+> cd /srv/NudgeMe && git fetch origin && git reset --hard origin/main
 > ```
-> Därefter fungerar `git pull` som vanligt igen. **Lärdom:** skriv aldrig om
-> publicerad historik utan att räkna med att prod-klonen måste rätas upp för
-> hand — regeln om användarnamn i `CLAUDE.md` finns för att slippa det här.
+> Bäst är förstås att slippa: regeln om användarnamn i `CLAUDE.md` finns just för
+> att inget ska behöva städas ur publicerad historik i efterhand.
 
 ### Om-koda befintliga bakgrundsbilder på prod (engångs)
 Nya uppladdningar skalas i `server/src/backgrounds.ts` (1280 px, WebP q58), men
