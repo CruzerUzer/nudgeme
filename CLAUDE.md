@@ -20,6 +20,14 @@ Arbetsregler och projektkontext för Claude Code i det här repot.
   (typecheck + test) kör `npm run build:test` för att bygga in ändringen i test-PWA:n;
   `vite preview` (:4305, exponerad via tailscale :8443) servar `dist/` live från disk
   så den uppdateras direkt. Bygge och lokala tester får alltid köras fritt.
+- **Aldrig namn på användare i repot.** Buggrapporter kommer från riktiga
+  personer, men varken namn eller deras egna aktivitetstitlar får hamna i
+  commit-meddelanden, kodkommentarer, branchnamn, testdata eller dokumentation.
+  Skriv "en användare rapporterade" och en avidentifierad aktivitet (`a1`, "samma
+  aktivitet"). **Varför det är extra viktigt just i commits:** ett namn i en
+  pushad commit går inte att städa bort utan att skriva om publicerad historik
+  och `push --force`, vilket dessutom spårar ur prod-VM:ens `git pull`. I filer
+  räcker en vanlig ändring — i historik gör det inte det.
 - **Håll dokumentationen levande.** När du lär dig något icke-uppenbart —
   en fälla, ett arbetsflöde, en gotcha — skriv in det direkt i rätt dokument
   (CLAUDE.md för arbetsregler/konventioner, `DEPLOY.md` för drift/test/deploy,
@@ -142,5 +150,15 @@ förbruka ditt tak.
   buggen gled igenom för att `selection.ts`/`schedule.ts` var väl täckta medan
   motorerna som *använder* dem hade noll tester. Rena hjälpfunktioner räcker
   inte som skydd.
+- **Bevisa att ett regressionstest fallerar mot den buggiga koden.** Ett test som
+  aldrig setts bli rött är ingen garanti — det kan testa fel sak och vara grönt av
+  en slump. Rulla tillbaka fixen tillfälligt och kör:
+  ```bash
+  git checkout <commit-före-fixen>^ -- <fil>   # eller stasha fixen
+  npx vitest run <testfil>                      # ska bli RÖTT
+  git checkout HEAD -- <fil>                    # återställ
+  ```
+  Gäller dubbelt när samma regel finns i båda motorerna: kontrollera att testet
+  blir rött för *var och en* av dem, annars skyddar du bara den ena.
 - En aktivitet har exakt en valfri bild (`imageUrl`). Seeda inga bilder.
 - Se `TODO.md` för medvetet uppskjutet arbete.
