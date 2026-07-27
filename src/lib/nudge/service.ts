@@ -79,10 +79,11 @@ export class NudgeService {
     const due = new Date(engine.nextNudgeAt).getTime() <= now.getTime();
     if (!due) return this.currentNudge(now);
 
-    // En aktiv nudge ligger kvar tills användaren bekräftar eller tar bort den
-    // (snooza). Ingen ny ska byta ut den.
+    // En nudge som användaren engagerat sig i (acked/committed) ligger kvar tills
+    // hon gör klart eller snoozar – ingen ny byter ut den. En orörd "sent"
+    // räknas inte som aktiv: den auto-ignoreras och ersätts av en ny.
     const current = await this.currentNudge(now);
-    if (current) {
+    if (current && current.record.status !== "sent") {
       await this.scheduleNext(now, schedule);
       return current;
     }
@@ -109,10 +110,11 @@ export class NudgeService {
       this.store.getFrequencySettings(),
       this.store.listNudges(),
     ]);
-    // Endast en snoozad i taget: när nästa aktivitet föreslås enligt schema
-    // blir en tidigare snoozad aktivitet automatiskt ignorerad.
+    // En orörd nudge tjatar aldrig: en tidigare snoozad OCH en obesvarad "sent"
+    // blir automatiskt ignorerad när nästa aktivitet föreslås. Aktivt engagerade
+    // (acked/committed) rörs inte här – de har redan behållits i refresh().
     for (const n of history) {
-      if (n.status === "snoozed") {
+      if (n.status === "snoozed" || n.status === "sent") {
         await this.store.saveNudge({ ...n, status: "ignored" });
       }
     }

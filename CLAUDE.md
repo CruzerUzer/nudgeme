@@ -8,6 +8,9 @@ Arbetsregler och projektkontext för Claude Code i det här repot.
   egen färsk branch (t.ex. `feature/inloggning`, `fix/snooze-status`). Aldrig
   commits direkt på `main`, och återanvänd inte en tidigare features branch för
   nytt orelaterat arbete. Öppna PR mot `main`.
+- **Commita fritt — men fråga Adam innan merge.** Du får alltid commita på din
+  branch utan att fråga. Merge till `main` (och push av `main`) kräver däremot
+  Adams uttryckliga ja varje gång.
 - **Fråga bara Adam innan deploy till PRODUKTION.** Den här dev-servern
   (hemmalinux) har SSH-behörighet att deploya till produktionsservern, men
   ingenting driftsätts/ändras i prod utan uttryckligt ja från Adam varje gång.
