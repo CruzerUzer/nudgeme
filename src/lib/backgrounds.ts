@@ -67,6 +67,14 @@ export function deletePack(id: string) {
   return apiFetch(`/api/admin/backgrounds/packs/${id}`, { method: "DELETE" });
 }
 
+/** Byt plats på bilder mellan två skärm-slots i ett paket (byter/flyttar). */
+export function moveImage(packId: string, from: string, to: string) {
+  return apiFetch(`/api/admin/backgrounds/packs/${packId}/move`, {
+    method: "POST",
+    body: JSON.stringify({ from, to }),
+  });
+}
+
 export async function uploadImage(packId: string, screen: string, file: File) {
   const form = new FormData();
   form.append("screen", screen);

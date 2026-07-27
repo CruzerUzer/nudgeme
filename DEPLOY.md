@@ -151,6 +151,12 @@ test och prod kan ligga parallellt på samma telefon. Nås **bara i tailnet**.
 - **Dev-backenden körs utan watch** (`npm start` = ren `tsx`). Ändringar i
   `server/` slår INTE igenom på testinstansen förrän backenden startas om (se
   omstartskommandot ovan). Klient-ändringar kräver `build:test`.
+- **Rör ändringen både frontend OCH `server/` (t.ex. en ny route + UI som anropar
+  den)? Då krävs BÅDE `build:test` OCH backend-omstart.** Bara `build:test` bygger
+  om frontend — då anropar den nya klientkoden en route som inte finns i den
+  körande (gamla) backend-processen, och symptomet blir "knappen gör ingenting"
+  utan tydligt fel. Lärdom från #36 (byt-plats-bilder): frontend byggdes men
+  backenden glömdes → bytet skedde aldrig förrän backenden startades om.
 - **Döda ALDRIG backenden med `pkill -f "tsx src/index.ts"`** — mönstret matchar
   ditt eget skalkommando och SIGTERM:ar din egen körning mitt i. Rikta mot
   porten/PID istället (`ss -ltnp | grep :4303`), eller starta bara om den (den är

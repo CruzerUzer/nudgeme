@@ -255,6 +255,13 @@ api.post(
     }
   },
 );
+api.post("/admin/backgrounds/packs/:id/move", requireAdmin, (req, res) => {
+  try {
+    res.json(bg.moveImage(req.params.id, String(req.body?.from ?? ""), String(req.body?.to ?? "")));
+  } catch (e) {
+    sendError(res, e);
+  }
+});
 api.delete("/admin/backgrounds/packs/:id", requireAdmin, (req, res) => {
   bg.deletePack(req.params.id);
   res.json({ ok: true });
