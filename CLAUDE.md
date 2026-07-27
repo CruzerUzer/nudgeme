@@ -41,12 +41,18 @@ alviskt/natur/romantasy med humoristisk copy.
 npm run dev        # dev-server (porten allokeras via Helm: helmctl port claim nudgeme)
 npm run typecheck  # tsc -b --noEmit — verifiera typerna UTAN att skriva dist/
 npm run build      # typecheck + produktionsbygge → dist/  (⚠️ se nedan)
-npm run test       # enhetstester (Vitest)
+npm run test       # enhetstester (Vitest) — kör BÅDE src/ och server/
+cd server && npm run typecheck   # ⚠️ serverns typer — täcks INTE av roten
 node scripts/gen-icons.mjs   # regenerera PWA-ikoner
 ```
 
 Verifiera alltid med `npm run typecheck` + `npm run test` innan en PR. Vid
 UI-ändringar: kör dev-servern och ta gärna en skärmbild (mobilvy 390px).
+
+> ⚠️ **`npm run typecheck` i roten typkollar inte `server/`.** Rot-tsconfigen har
+> `include: ["src"]`, så serverkoden är osynlig för den — medan `npm run test`
+> *kör* serverns tester. Rör ändringen `server/`: kör `cd server && npm run
+> typecheck` också, annars kan ett typfel gå hela vägen till test/prod.
 
 > ⚠️ **Kör INTE `npm run build` (lokalt läge) bara för att verifiera.** `dist/` är
 > delad med testinstansen: `vite preview` (:4305, se `DEPLOY.md`) servar `dist/`
@@ -75,7 +81,8 @@ UI-ändringar: kör dev-servern och ta gärna en skärmbild (mobilvy 390px).
   `getStore()` i `src/lib/db/index.ts` väljer källa: `VITE_API_URL` satt → server.
 - **Kärnlogik (ren + testad):** `src/lib/nudge/` — `selection.ts` (frekvenstak,
   urval), `schedule.ts` (tidsspann, nästa nudge), `service.ts` (`NudgeService`:
-  livscykel, auto-ignorering, "Överraska mig").
+  livscykel, auto-ignorering, "Överraska mig"), `lifecycle.cases.ts` (delade
+  livscykelregler som körs mot båda motorerna — se avsnittet nedan).
 - **Copy/röst:** all humoristisk text i `src/copy/voice.ts`.
 - **Backend (lokal server):** `server/` — Node + Express + SQLite +
   användarnamn/lösenord (bcrypt + JWT). Nudge-motorn som worker (`engine.ts`).
@@ -84,9 +91,43 @@ UI-ändringar: kör dev-servern och ta gärna en skärmbild (mobilvy 390px).
 - **Push:** Web Push (VAPID) + service worker-hanterare i
   `public/push-handler.js`.
 
+## Nudge-livscykeln — TVÅ motorer som måste ändras i par
+
+Samma regler finns implementerade två gånger: `src/lib/nudge/service.ts`
+(klienten, lokalt läge) och `server/src/engine.ts` (servern, serverläge). De är
+medvetet skilda implementationer, men **beteendet måste vara identiskt**.
+
+- Reglerna bor som data i **`src/lib/nudge/lifecycle.cases.ts`** och körs mot båda
+  motorerna från `src/lib/nudge/service.test.ts` och `server/src/engine.test.ts`.
+- **Ändrar du en livscykelregel: lägg fallet i tabellen FÖRST**, se båda testerna
+  bli röda, fixa sedan båda motorerna. Buggen där en orörd nudge låg kvar i dagar
+  krävde två separata kodändringar och ingenting kopplade ihop dem.
+- `lifecycle.cases.ts` får inte ha några imports — den läses av två tsconfigs.
+
+Håll de tre statusmängderna isär (de finns i båda motorerna). Att `VISIBLE` och
+`ENGAGED` en gång var *ett* begrepp var precis det som bjöd in buggen:
+
+| Mängd | Betyder | Statusar |
+|---|---|---|
+| `VISIBLE` | visas som aktuellt kort i appen | `sent`, `acked`, `committed` |
+| `ENGAGED` | **blockerar** en ny nudge | `acked`, `committed` |
+| `AUTO_IGNORED` | ignoreras tyst när en ny föreslås | `sent`, `snoozed` |
+
+En orörd `sent` är alltså synlig men blockerar inte — den *ersätts* när nästa är due.
+
+⚠️ **Auto-ignorering måste synas i urvalet.** `generate()` läser historiken,
+skriver `ignored` och väljer sedan aktivitet. Skicka den **uppdaterade**
+historiken till urvalet — annars räknas den nyss ignorerade fortfarande som
+`sent`, äter frekvenstaket, och poolen kan tömmas helt (varannan nudge uteblev
+för den som bara hade en valbar aktivitet). En nudge du aldrig såg ska inte
+förbruka ditt tak.
+
 ## Konventioner
 
 - Aldrig hårdkoda dev-portar — begär via Helm (`helmctl port claim <service>`).
 - Håll affärslogik i `src/lib/nudge/` som rena funktioner med tester; UI:t tunt.
+- **Testa orkestreringen, inte bara de rena funktionerna.** den rapporterade buggen gled
+  igenom för att `selection.ts`/`schedule.ts` var väl täckta medan motorerna som
+  *använder* dem hade noll tester. Rena hjälpfunktioner räcker inte som skydd.
 - En aktivitet har exakt en valfri bild (`imageUrl`). Seeda inga bilder.
 - Se `TODO.md` för medvetet uppskjutet arbete.

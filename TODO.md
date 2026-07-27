@@ -2,6 +2,17 @@
 
 Framtida arbete som medvetet skjutits upp.
 
+## Ett obesvarat åtagande tystar appen för alltid (designfråga till Adam)
+- Båda motorerna låter en nudge med status `acked`/`committed` blockera alla nya
+  nudges tills användaren gör klart eller snoozar den. Det är avsiktligt — men
+  det finns ingen tidsgräns. Trycker användaren "ja, jag gör det" och sedan aldrig rör
+  kortet igen slutar appen nudga *permanent*, med samma symptom som buggen hon
+  rapporterade (fast från ett annat håll).
+- Escape-hatchen finns (kortet ligger kvar på Hem med sina knappar), så det är
+  inte akut. **Fråga:** ska ett åtagande auto-förfalla efter N dagar och släppa
+  fram nya nudges? Testfallen i `src/lib/nudge/lifecycle.cases.ts` låser dagens
+  beteende, så en ändring blir röd i båda motorerna direkt.
+
 ## Default-bilder – lägg in filerna
 - Infrastrukturen är klar: lägg bildfiler i `server/assets/defaults/` namngivna
   efter aktivitetens slug (se den mappens `README.md`), så får nya konton
