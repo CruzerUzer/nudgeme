@@ -138,8 +138,9 @@ förbruka ditt tak.
 
 - Aldrig hårdkoda dev-portar — begär via Helm (`helmctl port claim <service>`).
 - Håll affärslogik i `src/lib/nudge/` som rena funktioner med tester; UI:t tunt.
-- **Testa orkestreringen, inte bara de rena funktionerna.** den rapporterade buggen gled
-  igenom för att `selection.ts`/`schedule.ts` var väl täckta medan motorerna som
-  *använder* dem hade noll tester. Rena hjälpfunktioner räcker inte som skydd.
+- **Testa orkestreringen, inte bara de rena funktionerna.** Den rapporterade
+  buggen gled igenom för att `selection.ts`/`schedule.ts` var väl täckta medan
+  motorerna som *använder* dem hade noll tester. Rena hjälpfunktioner räcker
+  inte som skydd.
 - En aktivitet har exakt en valfri bild (`imageUrl`). Seeda inga bilder.
 - Se `TODO.md` för medvetet uppskjutet arbete.
