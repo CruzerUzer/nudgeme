@@ -60,6 +60,7 @@ export function selectEligible(
   settings: FrequencySettings,
   now: Date,
   rnd: () => number = Math.random,
+  exclude?: string,
 ): Activity | null {
   const eligible = activities.filter((a) => {
     if (!a.active) return false;
@@ -75,7 +76,13 @@ export function selectEligible(
     return used < cap.count;
   });
   if (eligible.length === 0) return null;
-  return eligible[Math.floor(rnd() * eligible.length)];
+  // Undvik att upprepa exakt samma aktivitet direkt – men bara om det finns
+  // något annat att välja (annars hellre en repris än ingen nudge alls).
+  const pool =
+    exclude && eligible.length > 1
+      ? eligible.filter((a) => a.id !== exclude)
+      : eligible;
+  return pool[Math.floor(rnd() * pool.length)];
 }
 
 export const DEFAULT_TZ = "Europe/Stockholm";

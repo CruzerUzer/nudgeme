@@ -33,6 +33,8 @@ function generate(userId: string, now: Date): boolean {
   const history = repo.listNudges(userId).map(
     (n): NudgeRow => ({ id: n.id, activity_id: n.activityId, sent_at: n.sentAt, status: n.status }),
   );
+  // listNudges är sorterad nyast först → [0] är den nudge som just ersätts.
+  const prevActivityId = history[0]?.activity_id;
   // En orörd nudge tjatar aldrig: en tidigare "sent" (aldrig ackad) och en
   // snoozad blir automatiskt ignorerade när en ny föreslås. Aktivt engagerade
   // (committed/acked) rörs inte här – de blockerar redan i processUser.
@@ -42,7 +44,7 @@ function generate(userId: string, now: Date): boolean {
     }
   }
   const settings = repo.getFrequency(userId) as any;
-  const activity = selectEligible(activities, history, settings, now);
+  const activity = selectEligible(activities, history, settings, now, Math.random, prevActivityId);
   if (!activity) return false;
 
   repo.upsertNudge(userId, {
