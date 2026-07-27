@@ -2,8 +2,9 @@
 
 Ritning för att göra appen användbar utan nät.
 
-**Status: ALLA TRE FASER implementerade.** `OfflineStore`
-(`src/lib/db/offlineStore.ts`) dekorerar `LocalServerStore`:
+**Status: ALLA TRE FASER implementerade och deployade till prod (2026-07-26,
+Helm-ticket #35).** `OfflineStore` (`src/lib/db/offlineStore.ts`) dekorerar
+`LocalServerStore`:
 - **Läsning (fas 1):** read-through-cache i IndexedDB (`offlineCache.ts`), per
   userId; vid nätfel serveras senast kända data. Diskret offline-banner.
 - **Skrivning (fas 2):** varje mutation uppdaterar cachen optimistiskt och läggs

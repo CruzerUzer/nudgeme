@@ -105,6 +105,8 @@ sudo certbot --nginx -d nudgeme.faris.se
   verifierar `https://nudgeme.faris.se/api/registration-status`. Kräver Adams OK.
   (En 502 direkt efter restart är oftast bara `tsx` som kallstartar – verifiera
   om med `curl --retry`.)
+  **OBS:** `build:server` skriver över den delade `dist/` → bygg om testinstansen
+  med `build:test` efteråt (se Testinstans-avsnittet).
 - **Bara frontend:** `./deploy/deploy-frontend.sh` (bygg lokalt + rsync).
 - **Prod-branch:** VM:en står på `main` och gör `git pull` – merga till `main`
   och pusha innan `update-nudgeme.sh` körs.
@@ -145,15 +147,34 @@ test och prod kan ligga parallellt på samma telefon. Nås **bara i tailnet**.
   `dist/` direkt från disk. Ladda om PWA:n; stäng/öppna en gång så nya service
   workern tar över (iPhone kan kräva ta bort + lägg till på hemskärmen igen).
 
-> ⚠️ **`dist/` är delad — ett vanligt `npm run build` kapar testinstansen.**
-> `vite preview` (:4305) läser `dist/` **live från disk**. Både `npm run build`
-> (lokalt läge, ingen test-branding) och `npm run build:test` skriver till samma
-> `dist/`. Kör du `npm run build` för att verifiera ett bygge skrivs test-PWA:n
-> tyst över med ett lokalt-läge-bygge (fel titel/ikon, ingen inloggning) tills
-> nästa `build:test`. **Regel:** typecheck:a med `npm run typecheck` (rör inte
-> `dist/`); behöver du ett fullt bygge, kör `npm run build:test` så testinstansen
-> förblir korrekt — och verifiera efteråt att `curl -s http://127.0.0.1:4305/ |
-> grep '<title>'` visar `NudgeMe TEST`.
+### Fällor & tips (test)
+- **Dev-backenden körs utan watch** (`npm start` = ren `tsx`). Ändringar i
+  `server/` slår INTE igenom på testinstansen förrän backenden startas om (se
+  omstartskommandot ovan). Klient-ändringar kräver `build:test`.
+- **Döda ALDRIG backenden med `pkill -f "tsx src/index.ts"`** — mönstret matchar
+  ditt eget skalkommando och SIGTERM:ar din egen körning mitt i. Rikta mot
+  porten/PID istället (`ss -ltnp | grep :4303`), eller starta bara om den (den är
+  ofta redan död).
+- **Testa serverlogik utan inloggning:** registrering är avstängd på test-backenden
+  (`/api/registration-status` → `{"open":false}`) och det finns inga slask-
+  credentials → gå inte via API:t. Kör istället den *riktiga* server-koden mot en
+  temp-DB (DB-sökvägen är env-styrd):
+  ```bash
+  cd server && NUDGEME_DB=/tmp/x.db npx tsx <script>.mts   # importera repo/motorn isolerat
+  ```
+  (Så verifierades t.ex. offline-`done`-guarden i `repo.upsertNudge`.)
+
+> ⚠️ **`dist/` är delad — varje fullt bygge kapar testinstansen.**
+> `vite preview` (:4305) läser `dist/` **live från disk**. Alla byggen skriver
+> till samma `dist/`: `npm run build` (lokalt läge), `npm run build:server`
+> (prod-deploy) och `npm run build:test`. Kör du `build`/`build:server` skrivs
+> test-PWA:n tyst över (fel titel/ikon, ev. ingen inloggning) tills nästa
+> `build:test`. **Regler:**
+> - Verifiera kod med `npm run typecheck` (rör inte `dist/`), aldrig `npm run build`.
+> - **Efter varje prod-deploy** (`update-nudgeme.sh` kör `build:server`) — bygg om
+>   testinstansen med `build:test` (se ovan) för att återställa den.
+> - Verifiera alltid efteråt: `curl -s http://127.0.0.1:4305/ | grep '<title>'`
+>   ska visa `NudgeMe TEST`.
 
 ## Data & backup
 - SQLite: `/srv/NudgeMe/server/data/nudgeme.db`. Uppladdade bakgrunder:
