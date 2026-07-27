@@ -33,9 +33,13 @@ function generate(userId: string, now: Date): boolean {
   const history = repo.listNudges(userId).map(
     (n): NudgeRow => ({ id: n.id, activity_id: n.activityId, sent_at: n.sentAt, status: n.status }),
   );
-  // Endast en snoozad i taget: äldre snoozad blir ignorerad när ny föreslås.
+  // En orörd nudge tjatar aldrig: en tidigare "sent" (aldrig ackad) och en
+  // snoozad blir automatiskt ignorerade när en ny föreslås. Aktivt engagerade
+  // (committed/acked) rörs inte här – de blockerar redan i processUser.
   for (const n of repo.listNudges(userId)) {
-    if (n.status === "snoozed") repo.upsertNudge(userId, { ...n, status: "ignored" });
+    if (n.status === "snoozed" || n.status === "sent") {
+      repo.upsertNudge(userId, { ...n, status: "ignored" });
+    }
   }
   const settings = repo.getFrequency(userId) as any;
   const activity = selectEligible(activities, history, settings, now);
@@ -104,14 +108,15 @@ function processUser(userId: string, now: Date) {
     reschedule(userId, now);
     return;
   }
-  // En aktiv nudge (sent/acked/committed) ska ligga kvar tills användaren
-  // bekräftar (gör klart) eller tar bort den (snooza). Ingen ny ska byta ut
-  // den – vi skjuter bara fram nästa kontroll.
+  // En nudge som användaren engagerat sig i (acked/committed) ska ligga kvar
+  // tills hon gör klart eller snoozar – ingen ny byter ut den, vi skjuter bara
+  // fram nästa kontroll. En orörd "sent" räknas INTE som aktiv: den ersätts av
+  // en ny när nästa är due (generate auto-ignorerar den).
   const nudges = repo.listNudges(userId);
-  const pending = nudges.find((n) =>
-    ["sent", "acked", "committed"].includes(n.status),
+  const engaged = nudges.find((n) =>
+    ["acked", "committed"].includes(n.status),
   );
-  if (pending) {
+  if (engaged) {
     reschedule(userId, now);
     return;
   }
