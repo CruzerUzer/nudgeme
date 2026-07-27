@@ -8,12 +8,15 @@ Arbetsregler och projektkontext för Claude Code i det här repot.
   egen färsk branch (t.ex. `feature/inloggning`, `fix/snooze-status`). Aldrig
   commits direkt på `main`, och återanvänd inte en tidigare features branch för
   nytt orelaterat arbete. Öppna PR mot `main`.
-- **Fråga ALLTID Adam innan deploy till produktion.** Den här dev-servern
+- **Fråga bara Adam innan deploy till PRODUKTION.** Den här dev-servern
   (hemmalinux) har SSH-behörighet att deploya till produktionsservern, men
   ingenting driftsätts/ändras i prod utan uttryckligt ja från Adam varje gång.
-  Bygge och lokala tester får köras fritt. Produktion = Oracle-VM
-  `ubuntu@potterytracker.faris.se`; NudgeMe ska nås på **nudgeme.faris.se**.
-  Se `DEPLOY.md` för planen.
+  Produktion = Oracle-VM `ubuntu@potterytracker.faris.se`; NudgeMe ska nås på
+  **nudgeme.faris.se**. Se `DEPLOY.md` för planen.
+- **Testinstansen får du uppdatera fritt — fråga inte.** När arbetet är verifierat
+  (typecheck + test) kör `npm run build:test` för att bygga in ändringen i test-PWA:n;
+  `vite preview` (:4305, exponerad via tailscale :8443) servar `dist/` live från disk
+  så den uppdateras direkt. Bygge och lokala tester får alltid köras fritt.
 - Svara på svenska. Förklara tekniska begrepp kort i förbifarten.
 
 ## Vad NudgeMe är
@@ -37,12 +40,13 @@ node scripts/gen-icons.mjs   # regenerera PWA-ikoner
 Verifiera alltid med `npm run typecheck` + `npm run test` innan en PR. Vid
 UI-ändringar: kör dev-servern och ta gärna en skärmbild (mobilvy 390px).
 
-> ⚠️ **Kör INTE `npm run build` bara för att verifiera.** `dist/` är delad med
-> testinstansen: `vite preview` (:4305, se `DEPLOY.md`) servar `dist/` live från
-> disk, så ett vanligt `npm run build` (lokalt läge) skriver tyst över test-PWA:n
-> med fel bygge tills nästa `build:test`. Använd `npm run typecheck` för att
-> verifiera typerna. Behöver du verkligen ett fullt bygge, kör `npm run
-> build:test` (server-läge + test-branding) så testinstansen förblir korrekt.
+> ⚠️ **Kör INTE `npm run build` (lokalt läge) bara för att verifiera.** `dist/` är
+> delad med testinstansen: `vite preview` (:4305, se `DEPLOY.md`) servar `dist/`
+> live från disk, så ett vanligt `npm run build` skriver tyst över test-PWA:n med
+> fel bygge tills nästa `build:test`. Använd `npm run typecheck` för att verifiera
+> typerna. **För att uppdatera testinstansen (tillåtet fritt, ingen fråga behövs):**
+> kör `npm run build:test` (server-läge + test-branding) så testinstansen förblir
+> korrekt och får den nya ändringen direkt.
 
 ## Arkitektur
 
