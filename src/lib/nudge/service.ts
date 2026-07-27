@@ -118,7 +118,19 @@ export class NudgeService {
         await this.store.saveNudge({ ...n, status: "ignored" });
       }
     }
-    const activity = selectNudge(activities, settings, history, now);
+    // Undvik att direkt upprepa samma aktivitet: exkludera den senaste nudgens
+    // aktivitet (den som just ersätts) om det finns något annat att välja.
+    const prev = [...history].sort((a, b) =>
+      b.sentAt.localeCompare(a.sentAt),
+    )[0];
+    const activity = selectNudge(
+      activities,
+      settings,
+      history,
+      now,
+      Math.random,
+      prev?.activityId,
+    );
     if (!activity) return null;
     const record: NudgeRecord = {
       id: uid(),
