@@ -14,6 +14,9 @@ const { DEFAULT_NOTIFICATION_PREFS } = await import("./nudge.js");
 const { LIFECYCLE_CASES, CASE_ACTIVITIES } = await import(
   "../../src/lib/nudge/lifecycle.cases.js"
 );
+const { SCHEDULE_CASES } = await import(
+  "../../src/lib/nudge/schedule.cases.js"
+);
 
 afterAll(() => rmSync(tmp, { recursive: true, force: true }));
 
@@ -324,48 +327,59 @@ beforeAll(() => {
 // Klientens motsvarighet finns i src/lib/nudge/service.test.ts.
 
 describe("motorn skickar inte fler nudges än schemat säger", () => {
-  it("1 per dag ger exakt 1 nudge per dygn över flera dygn", () => {
-    const u = "en-per-dygn";
-    mkUser(u);
-    for (const a of ["a1", "a2", "a3"]) addActivity(u, a); // frekvens A = inget tak
-    repo.setKv(u, "notifPrefs", { ...DEFAULT_NOTIFICATION_PREFS, paused: false });
-    repo.setKv(
-      u,
-      "schedule",
-      Array.from({ length: 7 }, (_, weekday) => ({
-        weekday,
-        enabled: true,
-        startMinutes: 9 * 60,
-        endMinutes: 21 * 60,
-        nudgesPerDay: 1,
-      })),
-    );
+  // Körs för HELA den delade tabellen (1/dag, 3/dag, smalt spann) så att inte
+  // bara enkelfallet är skyddat — en användare kan ha flera per dag.
+  for (const c of SCHEDULE_CASES) {
+    it(`${c.day.nudgesPerDay}/dag ger exakt ${c.day.nudgesPerDay} nudge(s) per dygn`, () => {
+      const u = `perdygn-${c.day.nudgesPerDay}-${c.day.startMinutes}`;
+      mkUser(u);
+      for (const a of ["a1", "a2", "a3"]) addActivity(u, a); // frekvens A = inget tak
+      repo.setKv(u, "notifPrefs", {
+        ...DEFAULT_NOTIFICATION_PREFS,
+        paused: false,
+        // Tysta timmar får inte skära av spannet i det här testet.
+        quietStartMinutes: 0,
+        quietEndMinutes: 0,
+      });
+      repo.setKv(
+        u,
+        "schedule",
+        Array.from({ length: 7 }, (_, weekday) => ({
+          weekday,
+          enabled: true,
+          ...c.day,
+        })),
+      );
 
-    // Midnatt i Europe/Stockholm (sommartid). initUserEngine ger med flit en
-    // välkomstnudge direkt — den räknas bort genom att bara dygn 1+ mäts.
-    const start = new Date("2026-06-30T22:00:00.000Z");
-    const DYGN = 4;
-    initUserEngine(u, start);
-    for (let m = 1; m <= DYGN * 24 * 60; m++) {
-      tick(new Date(start.getTime() + m * 60_000));
-    }
+      // Midnatt i Europe/Stockholm (sommartid). initUserEngine ger med flit en
+      // välkomstnudge direkt — den räknas bort genom att bara dygn 1+ mäts.
+      const start = new Date("2026-06-30T22:00:00.000Z");
+      const DYGN = 4;
+      initUserEngine(u, start);
+      for (let m = 1; m <= DYGN * 24 * 60; m++) {
+        tick(new Date(start.getTime() + m * 60_000));
+      }
 
-    const dagnyckel = new Intl.DateTimeFormat("sv-SE", {
-      timeZone: "Europe/Stockholm",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
+      const dagnyckel = new Intl.DateTimeFormat("sv-SE", {
+        timeZone: "Europe/Stockholm",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      });
+      const perDag = new Map<string, number>();
+      for (const n of repo.listNudges(u)) {
+        const k = dagnyckel.format(new Date(n.sentAt));
+        perDag.set(k, (perDag.get(k) ?? 0) + 1);
+      }
+      for (let i = 1; i < DYGN; i++) {
+        const k = dagnyckel.format(new Date(start.getTime() + i * 86_400_000));
+        expect({ dag: k, antal: perDag.get(k) ?? 0 }).toEqual({
+          dag: k,
+          antal: c.day.nudgesPerDay,
+        });
+      }
+
+      park(u);
     });
-    const perDag = new Map<string, number>();
-    for (const n of repo.listNudges(u)) {
-      const k = dagnyckel.format(new Date(n.sentAt));
-      perDag.set(k, (perDag.get(k) ?? 0) + 1);
-    }
-    for (let i = 1; i < DYGN; i++) {
-      const k = dagnyckel.format(new Date(start.getTime() + i * 86_400_000));
-      expect({ dag: k, antal: perDag.get(k) ?? 0 }).toEqual({ dag: k, antal: 1 });
-    }
-
-    park(u);
-  });
+  }
 });

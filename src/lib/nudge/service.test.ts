@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { NudgeService } from "./service";
 import { LIFECYCLE_CASES, CASE_ACTIVITIES } from "./lifecycle.cases";
+import { SCHEDULE_CASES } from "./schedule.cases";
 import type { DataStore, EngineState } from "@/lib/db/store";
 import {
   DEFAULT_FREQUENCY,
@@ -457,40 +458,45 @@ describe("NudgeService – på begäran", () => {
 // Serverns motsvarighet finns i server/src/engine.test.ts.
 
 describe("motorn skickar inte fler nudges än schemat säger", () => {
-  it("1 per dag ger exakt 1 nudge per dygn över flera dygn", async () => {
-    const store = new FakeStore();
-    store.activities = ["a1", "a2", "a3"].map((id) => act(id)); // frekvens A = inget tak
-    store.schedule = Array.from({ length: 7 }, (_, weekday) => ({
-      weekday,
-      enabled: true,
-      startMinutes: 9 * 60,
-      endMinutes: 21 * 60,
-      nudgesPerDay: 1,
-    }));
-    const service = new NudgeService(store);
+  // Körs för HELA den delade tabellen (1/dag, 3/dag, smalt spann) så att inte
+  // bara enkelfallet är skyddat — en användare kan ha flera per dag.
+  for (const c of SCHEDULE_CASES) {
+    it(`${c.day.nudgesPerDay}/dag ger exakt ${c.day.nudgesPerDay} nudge(s) per dygn`, async () => {
+      const store = new FakeStore();
+      store.activities = ["a1", "a2", "a3"].map((id) => act(id)); // frekvens A = inget tak
+      store.schedule = Array.from({ length: 7 }, (_, weekday) => ({
+        weekday,
+        enabled: true,
+        ...c.day,
+      }));
+      const service = new NudgeService(store);
 
-    // Lokal midnatt. Första refresh() ger med flit en välkomstnudge (nytt konto)
-    // — den räknas bort genom att bara dygn 1+ mäts.
-    const start = new Date(2026, 6, 1, 0, 0, 0, 0);
-    const DYGN = 4;
-    for (let m = 0; m <= DYGN * 24 * 60; m++) {
-      await service.refresh(new Date(start.getTime() + m * 60_000));
-    }
+      // Lokal midnatt. Första refresh() ger med flit en välkomstnudge (nytt
+      // konto) — den räknas bort genom att bara dygn 1+ mäts.
+      const start = new Date(2026, 6, 1, 0, 0, 0, 0);
+      const DYGN = 4;
+      for (let m = 0; m <= DYGN * 24 * 60; m++) {
+        await service.refresh(new Date(start.getTime() + m * 60_000));
+      }
 
-    const dagnyckel = (d: Date) =>
-      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
-        d.getDate(),
-      ).padStart(2, "0")}`;
-    const perDag = new Map<string, number>();
-    for (const n of store.nudges) {
-      const k = dagnyckel(new Date(n.sentAt));
-      perDag.set(k, (perDag.get(k) ?? 0) + 1);
-    }
-    for (let i = 1; i < DYGN; i++) {
-      const d = new Date(start);
-      d.setDate(d.getDate() + i);
-      const k = dagnyckel(d);
-      expect({ dag: k, antal: perDag.get(k) ?? 0 }).toEqual({ dag: k, antal: 1 });
-    }
-  });
+      const dagnyckel = (d: Date) =>
+        `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
+          d.getDate(),
+        ).padStart(2, "0")}`;
+      const perDag = new Map<string, number>();
+      for (const n of store.nudges) {
+        const k = dagnyckel(new Date(n.sentAt));
+        perDag.set(k, (perDag.get(k) ?? 0) + 1);
+      }
+      for (let i = 1; i < DYGN; i++) {
+        const d = new Date(start);
+        d.setDate(d.getDate() + i);
+        const k = dagnyckel(d);
+        expect({ dag: k, antal: perDag.get(k) ?? 0 }).toEqual({
+          dag: k,
+          antal: c.day.nudgesPerDay,
+        });
+      }
+    });
+  }
 });
