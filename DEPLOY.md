@@ -182,6 +182,19 @@ test och prod kan ligga parallellt på samma telefon. Nås **bara i tailnet**.
   cd server && NUDGEME_DB=/tmp/x.db npx tsx <script>.mts   # importera repo/motorn isolerat
   ```
   (Så verifierades t.ex. offline-`done`-guarden i `repo.upsertNudge`.)
+- **Buggrapport från prod? Reproducera lokalt istället för att gräva i prod.**
+  Prod-DB:n innehåller riktiga personers data och rörs inte utan att Adam
+  uttryckligen ber om det. Nästan allt går ändå att återskapa: skapa en användare
+  i en temp-DB (ovan) och kör `tick()` **minut för minut** över några dygn med en
+  påhittad `now`, och räkna resultatet. Så bevisades "2–3 nudges per dag" utan att
+  någon prod-rad lästes:
+  ```ts
+  initUserEngine(u, start);
+  for (let m = 1; m <= 5 * 24 * 60; m++) tick(new Date(start.getTime() + m * 60_000));
+  ```
+  Motorn tar `now` som parameter överallt just för att detta ska gå — behåll det.
+  Blir felet reproducerat: flytta simuleringen till ett riktigt test i **båda**
+  motortesterna istället för att låta den ligga som lösryckt skript.
 
 > ⚠️ **`dist/` är delad — varje fullt bygge kapar testinstansen.**
 > `vite preview` (:4305) läser `dist/` **live från disk**. Alla byggen skriver

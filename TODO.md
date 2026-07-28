@@ -19,6 +19,20 @@ Framtida arbete som medvetet skjutits upp.
 - Ev. framtida polish: visa antal köade ändringar i bannern; städa utgångna
   push-subs; migrera token till IDB om helt-stängd-app-replay i SW önskas.
 
+## Schemaändring mitt på dagen kan ge en extra nudge (obesvarad fråga till Adam)
+- Dagens tidpunkter är stabila och fröas på `(userId, datum, slot-index)`. Ändrar
+  användaren tidsspann eller antal per dag **mitt på dagen** ritas planen om, och
+  en ny tidpunkt kan hamna senare samma dygn trots att dagens nudge redan gått —
+  alltså en extra den dagen. Alla andra vägar till "för många per dag" är täckta
+  av testerna; just den här är kvar, medvetet.
+- Nuvarande beteende är tolkningen *"du bad om ett nytt schema, det gäller nu"*.
+  Alternativet är att låta en schemaändring börja gälla först nästa dygn.
+- **Adam har fått frågan men inte svarat.** Ta inte det här som en bugg att fixa
+  på eget bevåg — och lägg framför allt inte in ett tak som tystar dagens nudge
+  av misstag. Väljs alternativet: räkna dagens redan skickade nudges innan
+  planen ritas om (och tänk på att "Överraska mig"-poster ligger i samma tabell
+  utan egen markering — de får inte räknas som schemalagda).
+
 ## Testinstans – överlever inte reboot (medvetet nedprioriterat)
 - Dev-backend (`:4303`) och `vite preview` (`:4305`) för test-PWA:n körs via
   `nohup`, inte under en process-manager, så de dör vid en omstart av hemmalinux
