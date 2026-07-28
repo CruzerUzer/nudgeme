@@ -26,15 +26,13 @@ Framtida arbete som medvetet skjutits upp.
   *Ev. framtida förbättring:* lägg dem under systemd/PM2 så testinstansen kommer
   upp automatiskt efter reboot. Inte brådskande – test startas sällan om.
 
-## Produktion (kräver Adams OK innan deploy)
-- Kör servern under en process-manager (t.ex. systemd eller pm2) istället för
-  att starta manuellt; nudge-motorn är en `setInterval` i `startEngine`.
-- Sätt ett eget långt `JWT_SECRET` (se `server/.env.example`).
-- Aktivera web push: generera VAPID-nycklar, sätt `VAPID_*` på servern och
-  `VITE_VAPID_PUBLIC_KEY` i frontend. HTTPS krävs (Tailscale serve) för att
-  installera PWA:n och ta emot push, särskilt på iPhone.
-
 ## Klart tidigare
+- ✅ **Produktion i drift på `nudgeme.faris.se`** (verifierat 2026-07-28):
+  backend under PM2 som `nudgeme-api`, eget `JWT_SECRET` och `VAPID_*` satta i
+  `/srv/NudgeMe/server/.env`, push aktiverad, HTTPS via nginx + certbot.
+  Drift och uppdateringar: `DEPLOY.md`. (Punkterna som stod här som framtida
+  arbete var gjorda för länge sedan — kolla mot verkligheten innan du tror på en
+  TODO.)
 - ✅ Inloggnings-/registreringsvy (multi-user)
 - ✅ Byt från Supabase till lokal databas + auth (Supabase helt borttaget)
 - ✅ Bilder utanför localStorage (IndexedDB i lokalt läge)
