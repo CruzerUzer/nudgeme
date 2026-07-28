@@ -162,6 +162,13 @@ förbruka ditt tak.
   buggen gled igenom för att `selection.ts`/`schedule.ts` var väl täckta medan
   motorerna som *använder* dem hade noll tester. Rena hjälpfunktioner räcker
   inte som skydd.
+  **Lärdom från "2–3 nudges per dag":** en korrekt `nextTimestamp` skyddar inte
+  om motorn *anropar* den fel — med ett frö som varierar per anrop var buggen
+  helt tillbaka medan alla schematester förblev gröna. Därför finns testet
+  *"1 per dag ger exakt 1 nudge per dygn"* i BÅDA motortesterna
+  (`server/src/engine.test.ts`, `src/lib/nudge/service.test.ts`): det kör motorn
+  minut för minut över flera dygn och räknar. Sabotera anropsstället när du rör
+  schemaläggningen — blir inte de två testerna röda är skyddet borta.
 - **Bevisa att ett regressionstest fallerar mot den buggiga koden.** Ett test som
   aldrig setts bli rött är ingen garanti — det kan testa fel sak och vara grönt av
   en slump. Rulla tillbaka fixen tillfälligt och kör:
