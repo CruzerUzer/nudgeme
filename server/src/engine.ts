@@ -32,7 +32,8 @@ if (vapidPublic && vapidPrivate) {
 function reschedule(userId: string, now: Date) {
   const days = repo.getSchedule(userId) as any[];
   const tz = repo.getTimeZone(userId);
-  const next = nextTimestamp(now, days, tz);
+  // userId som frö → varje användare får sina egna tider på dygnet.
+  const next = nextTimestamp(now, days, tz, userId);
   repo.setKv(userId, "engine", { nextNudgeAt: next ? next.toISOString() : null });
 }
 

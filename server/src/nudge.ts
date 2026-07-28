@@ -157,14 +157,38 @@ function zonedToUtc(y: number, mo: number, d: number, minutes: number, tz: strin
 }
 
 /**
+ * Stabil "slump" ur en sträng (FNV-1a + mulberry32-steg). Samma nyckel ger alltid
+ * samma tal i [0,1). Speglas i src/lib/nudge/schedule.ts — ändra alltid båda.
+ */
+export function seededUnit(key: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < key.length; i++) {
+    h ^= key.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  h = (h + 0x6d2b79f5) | 0;
+  let t = h;
+  t = Math.imul(t ^ (t >>> 15), t | 1);
+  t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+}
+
+/**
  * Nästa nudge-tidpunkt, beräknad i ANVÄNDARENS tidszon (DST-medvetet), inte
  * serverns. `tz` = IANA-namn (t.ex. "Europe/Stockholm").
+ *
+ * Dagens tidpunkter är STABILA: fröet är (seed, datum, slot-index), så varje
+ * omräkning ger samma plan. Motorn är tillståndslös och räknar om nästa tidpunkt
+ * efter varje skickad nudge — slumpades tiderna om varje gång landade en ny
+ * tidpunkt senare samma dag ungefär varannan gång, och användaren fick 2–3
+ * nudges trots "1 per dag". `seed` bör vara userId så att två användare inte får
+ * exakt samma tider.
  */
 export function nextTimestamp(
   now: Date,
   days: DaySchedule[],
   tz: string = DEFAULT_TZ,
-  rnd: () => number = Math.random,
+  seed = "",
 ): Date | null {
   const zone = isValidTz(tz) ? tz : DEFAULT_TZ;
   const nowMs = now.getTime();
@@ -189,8 +213,12 @@ export function nextTimestamp(
       offset === 0 && slot > 0
         ? Math.max(0, Math.floor((nowMinutes - day.startMinutes) / slot) - 1)
         : 0;
+    // Fröet innehåller slot-indexet, så hoppet till `iStart` ovan ger samma
+    // tider som en genomgång från 0 hade gett (en löpande RNG hade förskjutits).
+    const dayKey = `${y}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
     for (let i = iStart; i < n; i++) {
-      const minutes = Math.round(day.startMinutes + i * slot + rnd() * slot);
+      const r = seededUnit(`${seed}|${dayKey}|${i}`);
+      const minutes = Math.round(day.startMinutes + i * slot + r * slot);
       const candidate = zonedToUtc(y, mo, d, minutes, zone);
       if (candidate.getTime() > nowMs) return candidate;
       if (offset > 0) break; // framtida dag: första sloten räcker

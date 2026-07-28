@@ -135,6 +135,18 @@ ett löfte hon redan gett.
 > fastnade, men är det inte. Fallet *"åtagande blockerar även långt senare"* i
 > `lifecycle.cases.ts` finns just för att fånga den "fixen".
 
+⚠️ **Dagens tidpunkter måste vara STABILA — motorn är tillståndslös.** Efter varje
+skickad nudge räknas nästa tidpunkt om från "nu" (`nextNudgeTimestamp` respektive
+`nextTimestamp`). Slumpas dagens tider om vid varje omräkning landar den nya
+tidpunkten senare samma dag i ungefär hälften av fallen → 2–3 nudges på ett dygn
+trots "1 per dag" (en användare rapporterade exakt det). Tiderna fröas därför på
+`(userId, datum, slot-index)`: samma dygn ger alltid samma plan, och en passerad
+tidpunkt kan aldrig dyka upp igen. Fröet **måste innehålla slot-indexet** — en
+löpande RNG förskjuts av prestandahoppet som hoppar förbi passerade slots.
+Schemareglerna är delad data på samma sätt som livscykeln:
+**`src/lib/nudge/schedule.cases.ts`**, körd från `src/lib/nudge/schedule.test.ts`
+(klient) och `server/src/nudge.test.ts` (server).
+
 ⚠️ **Auto-ignorering måste synas i urvalet.** `generate()` läser historiken,
 skriver `ignored` och väljer sedan aktivitet. Skicka den **uppdaterade**
 historiken till urvalet — annars räknas den nyss ignorerade fortfarande som
@@ -150,6 +162,13 @@ förbruka ditt tak.
   buggen gled igenom för att `selection.ts`/`schedule.ts` var väl täckta medan
   motorerna som *använder* dem hade noll tester. Rena hjälpfunktioner räcker
   inte som skydd.
+  **Lärdom från "2–3 nudges per dag":** en korrekt `nextTimestamp` skyddar inte
+  om motorn *anropar* den fel — med ett frö som varierar per anrop var buggen
+  helt tillbaka medan alla schematester förblev gröna. Därför finns testet
+  *"1 per dag ger exakt 1 nudge per dygn"* i BÅDA motortesterna
+  (`server/src/engine.test.ts`, `src/lib/nudge/service.test.ts`): det kör motorn
+  minut för minut över flera dygn och räknar. Sabotera anropsstället när du rör
+  schemaläggningen — blir inte de två testerna röda är skyddet borta.
 - **Bevisa att ett regressionstest fallerar mot den buggiga koden.** Ett test som
   aldrig setts bli rött är ingen garanti — det kan testa fel sak och vara grönt av
   en slump. Rulla tillbaka fixen tillfälligt och kör:

@@ -173,7 +173,12 @@ for (const [path, key] of [
     // sitter den kvar på den gamla (t.ex. ett dygn bort) och nya inställningar
     // (som fler per dag) får ingen effekt förrän den gamla tiden passerat.
     if (key === "schedule") {
-      const next = nextTimestamp(new Date(), body ?? [], repo.getTimeZone(req.userId!));
+      const next = nextTimestamp(
+        new Date(),
+        body ?? [],
+        repo.getTimeZone(req.userId!),
+        req.userId!,
+      );
       repo.setKv(req.userId!, "engine", {
         nextNudgeAt: next ? next.toISOString() : null,
       });
@@ -191,7 +196,7 @@ api.put("/timezone", (req: AuthedRequest, res) => {
   repo.setTimeZone(req.userId!, tz);
   if (tz !== prev) {
     const days = repo.getSchedule(req.userId!) as any[];
-    const next = nextTimestamp(new Date(), days, tz);
+    const next = nextTimestamp(new Date(), days, tz, req.userId!);
     repo.setKv(req.userId!, "engine", { nextNudgeAt: next ? next.toISOString() : null });
   }
   res.json({ ok: true, tz });
