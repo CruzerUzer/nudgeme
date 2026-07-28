@@ -147,6 +147,21 @@ Schemareglerna är delad data på samma sätt som livscykeln:
 **`src/lib/nudge/schedule.cases.ts`**, körd från `src/lib/nudge/schedule.test.ts`
 (klient) och `server/src/nudge.test.ts` (server).
 
+✅ **Ett ändrat schema gäller DIREKT och får ge en extra nudge samma dag — det är
+RÄTT beteende (Adams beslut).** Ändrar användaren tidsspann eller antal per dag
+ritas dagens plan om från det nya schemat, även om dagens nudge redan gått ut.
+Har hon precis bett om ett nytt schema ska hon också få se det verka nu, inte
+i morgon.
+
+> Ser du "två nudges samma dag" i ett testfall eller en rapport — kontrollera
+> först om schemat ändrades däremellan. Är det så: **lägg inte in ett dygnstak
+> och skjut inte fram ändringen till nästa dygn.** Det ser ut som buggen med
+> omslumpade tider, men är det inte. Testet *"ett ändrat schema får ge en nudge
+> till samma dag"* finns i båda schematesterna just för att fånga den "fixen".
+> (En sådan räkning har dessutom en fälla: "Överraska mig"-poster ligger i samma
+> `nudges`-tabell utan egen markering och skulle räknas som schemalagda — då
+> tystnar dagens riktiga nudge istället.)
+
 ⚠️ **Auto-ignorering måste synas i urvalet.** `generate()` läser historiken,
 skriver `ignored` och väljer sedan aktivitet. Skicka den **uppdaterade**
 historiken till urvalet — annars räknas den nyss ignorerade fortfarande som

@@ -133,3 +133,29 @@ describe("nextNudgeTimestamp – antal nudges per dygn (delad tabell)", () => {
     expect(a?.toISOString()).not.toBe(b?.toISOString());
   });
 });
+
+describe("ett ändrat schema gäller direkt (Adams beslut)", () => {
+  // Dagens plan ritas om från det nya schemat, även om dagens nudge redan gått.
+  // Se CLAUDE.md: detta är RÄTT beteende — "fixa" det inte med ett dygnstak.
+  it("ett ändrat schema får ge en nudge till samma dag", () => {
+    const före = weekOf({
+      startMinutes: 9 * 60,
+      endMinutes: 21 * 60,
+      nudgesPerDay: 1,
+    });
+    // Dagens nudge har just gått ut kl 10:00 ur det gamla schemat.
+    const nu = new Date(2026, 6, 1, 10, 0, 0, 0);
+    const gammal = nextNudgeTimestamp(nu, före, "u1");
+    // Användaren flyttar spannet till kvällen → planen ska rita om till ikväll,
+    // inte skjuta upp till i morgon.
+    const efter = weekOf({
+      startMinutes: 18 * 60,
+      endMinutes: 21 * 60,
+      nudgesPerDay: 1,
+    });
+    const ny = nextNudgeTimestamp(nu, efter, "u1")!;
+    expect(ny.getDate()).toBe(nu.getDate());
+    expect(ny.getHours()).toBeGreaterThanOrEqual(18);
+    expect(ny.toISOString()).not.toBe(gammal?.toISOString());
+  });
+});

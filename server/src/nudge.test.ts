@@ -124,3 +124,37 @@ describe("nextTimestamp – antal nudges per dygn (delad tabell)", () => {
     );
   });
 });
+
+describe("ett ändrat schema gäller direkt (Adams beslut)", () => {
+  // Dagens plan ritas om från det nya schemat, även om dagens nudge redan gått.
+  // Se CLAUDE.md: detta är RÄTT beteende — "fixa" det inte med ett dygnstak.
+  it("ett ändrat schema får ge en nudge till samma dag", () => {
+    const före = weekOf({
+      startMinutes: 9 * 60,
+      endMinutes: 21 * 60,
+      nudgesPerDay: 1,
+    });
+    // Dagens nudge har just gått ut kl 10:00 lokal tid ur det gamla schemat.
+    const nu = new Date("2026-07-01T08:00:00.000Z");
+    const gammal = nextTimestamp(nu, före, TZ, "u1");
+    // Användaren flyttar spannet till kvällen → planen ska rita om till ikväll,
+    // inte skjuta upp till i morgon.
+    const efter = weekOf({
+      startMinutes: 18 * 60,
+      endMinutes: 21 * 60,
+      nudgesPerDay: 1,
+    });
+    const ny = nextTimestamp(nu, efter, TZ, "u1")!;
+    const delar = new Intl.DateTimeFormat("sv-SE", {
+      timeZone: TZ,
+      hourCycle: "h23",
+      day: "2-digit",
+      hour: "2-digit",
+    }).formatToParts(ny);
+    const dag = delar.find((p) => p.type === "day")!.value;
+    const timme = +delar.find((p) => p.type === "hour")!.value;
+    expect(dag).toBe("01");
+    expect(timme).toBeGreaterThanOrEqual(18);
+    expect(ny.toISOString()).not.toBe(gammal?.toISOString());
+  });
+});
