@@ -110,24 +110,19 @@ sudo certbot --nginx -d nudgeme.faris.se
 - **Bara frontend:** `./deploy/deploy-frontend.sh` (bygg lokalt + rsync).
 - **Prod-branch:** VM:en står på `main` och gör `git pull` – merga till `main`
   och pusha innan `update-nudgeme.sh` körs.
-
-> ℹ️ **`main` skrevs om 2026-07-27 (force-push) — HANTERAT, inget att göra.**
-> Historiken skrevs om för att ta bort ett användarnamn ur två commit-meddelanden,
-> så alla hashar från den punkten och framåt byttes ut. VM:en rätades upp samma
-> dag (`git fetch` + `git reset --hard origin/main`) och deployades därefter
-> normalt. Står VM:en på `f808fb2` eller senare är allt i sin ordning.
->
-> **Lärdomen, om det någonsin upprepas:** en force-push av `main` gör att VM:ens
-> klon divergerar och `update-nudgeme.sh` stannar på `git pull` ("divergent
-> branches"). Fixen är engångs och ofarlig — VM:en är bara en klon utan eget
-> arbete (`server/package-lock.json` kan se ändrad ut; den genereras om av
-> `npm install`):
-> ```bash
-> ssh ubuntu@potterytracker.faris.se
-> cd /srv/NudgeMe && git fetch origin && git reset --hard origin/main
-> ```
-> Bäst är förstås att slippa: regeln om användarnamn i `CLAUDE.md` finns just för
-> att inget ska behöva städas ur publicerad historik i efterhand.
+- **Om `main` någon gång force-pushas:** VM:ens klon divergerar och
+  `update-nudgeme.sh` stannar på `git pull` ("divergent branches"). Fixen är
+  engångs och ofarlig — VM:en är bara en klon utan eget arbete
+  (`server/package-lock.json` kan se ändrad ut; den genereras om av
+  `npm install`):
+  ```bash
+  ssh ubuntu@potterytracker.faris.se
+  cd /srv/NudgeMe && git fetch origin && git reset --hard origin/main
+  ```
+  Bäst är att slippa: regeln om användarnamn i `CLAUDE.md` finns just för att
+  inget ska behöva städas ur publicerad historik i efterhand.
+  Kontrollera hellre före deploy att en fast-forward går:
+  `git merge-base --is-ancestor HEAD origin/main`.
 
 ### Om-koda befintliga bakgrundsbilder på prod (engångs)
 Nya uppladdningar skalas i `server/src/backgrounds.ts` (1280 px, WebP q58), men
