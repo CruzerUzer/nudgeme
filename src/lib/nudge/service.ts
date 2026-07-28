@@ -123,7 +123,8 @@ export class NudgeService {
     now: Date,
     schedule: Awaited<ReturnType<DataStore["getSchedule"]>>,
   ) {
-    const next = nextNudgeTimestamp(now, schedule);
+    // userId som frö → dagens tider är stabila men individuella.
+    const next = nextNudgeTimestamp(now, schedule, await this.userId());
     await this.store.saveEngineState({
       nextNudgeAt: next ? next.toISOString() : null,
     });

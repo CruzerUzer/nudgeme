@@ -59,14 +59,55 @@ export function mayNudgeAt(
 }
 
 /**
+ * Stabil "slump" ur en sträng (FNV-1a + mulberry32-steg). Samma nyckel ger alltid
+ * samma tal i [0,1). Speglas i server/src/nudge.ts — ändra alltid båda.
+ */
+export function seededUnit(key: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < key.length; i++) {
+    h ^= key.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  h = (h + 0x6d2b79f5) | 0;
+  let t = h;
+  t = Math.imul(t ^ (t >>> 15), t | 1);
+  t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+}
+
+/**
+ * Dagens plan måste vara STABIL. Motorn är tillståndslös: efter varje skickad
+ * nudge räknas nästa tidpunkt om från "nu". Slumpades tiderna om vid varje
+ * omräkning landade en ny tidpunkt senare samma dag ungefär varannan gång →
+ * 2–3 nudges på en dag trots "1 per dag". Med ett frö av (användare, datum,
+ * slot-index) ger varje omräkning samma plan, och en redan passerad tidpunkt
+ * kan aldrig dyka upp igen.
+ */
+function plannedTimesForDay(
+  day: DaySchedule,
+  dayKey: string,
+  seed: string,
+): number[] {
+  let i = 0;
+  return randomTimesForDay(day, () => seededUnit(`${seed}|${dayKey}|${i++}`));
+}
+
+/** Lokal dagnyckel (ÅÅÅÅ-MM-DD) — klientmotorn räknar i webbläsarens tidszon. */
+function localDayKey(date: Date): string {
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${p(date.getMonth() + 1)}-${p(date.getDate())}`;
+}
+
+/**
  * Nästa tidpunkt (efter `now`) då en nudge ska skickas, givet veckoschemat.
- * Slumpar tidpunkter dag för dag och returnerar första som ligger i framtiden.
+ * Dagens tidpunkter är stabila (se `plannedTimesForDay`) och returneras i tur
+ * och ordning; `seed` gör att olika användare får olika tider samma dag.
  * Returnerar null om inga dagar är aktiverade inom en vecka framåt.
  */
 export function nextNudgeTimestamp(
   now: Date,
   schedule: readonly DaySchedule[],
-  rnd: () => number = Math.random,
+  seed = "",
 ): Date | null {
   for (let offset = 0; offset < 8; offset++) {
     const date = new Date(now);
@@ -75,7 +116,7 @@ export function nextNudgeTimestamp(
     if (!day || !day.enabled) continue;
     const midnight = new Date(date);
     midnight.setHours(0, 0, 0, 0);
-    for (const minutes of randomTimesForDay(day, rnd)) {
+    for (const minutes of plannedTimesForDay(day, localDayKey(date), seed)) {
       const candidate = new Date(midnight.getTime() + minutes * 60_000);
       if (candidate.getTime() > now.getTime()) return candidate;
     }

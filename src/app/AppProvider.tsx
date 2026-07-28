@@ -178,7 +178,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // Lokalt läge: räkna om nästa aktivitets-tidpunkt så ändringen får effekt
       // direkt (i serverläge gör servern det på PUT /schedule).
       if (!isServerMode()) {
-        const next = nextNudgeTimestamp(new Date(), s);
+        const next = nextNudgeTimestamp(
+          new Date(),
+          s,
+          await store.getUserId(),
+        );
         await store.saveEngineState({
           nextNudgeAt: next ? next.toISOString() : null,
         });

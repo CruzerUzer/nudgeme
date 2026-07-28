@@ -135,6 +135,18 @@ ett löfte hon redan gett.
 > fastnade, men är det inte. Fallet *"åtagande blockerar även långt senare"* i
 > `lifecycle.cases.ts` finns just för att fånga den "fixen".
 
+⚠️ **Dagens tidpunkter måste vara STABILA — motorn är tillståndslös.** Efter varje
+skickad nudge räknas nästa tidpunkt om från "nu" (`nextNudgeTimestamp` respektive
+`nextTimestamp`). Slumpas dagens tider om vid varje omräkning landar den nya
+tidpunkten senare samma dag i ungefär hälften av fallen → 2–3 nudges på ett dygn
+trots "1 per dag" (en användare rapporterade exakt det). Tiderna fröas därför på
+`(userId, datum, slot-index)`: samma dygn ger alltid samma plan, och en passerad
+tidpunkt kan aldrig dyka upp igen. Fröet **måste innehålla slot-indexet** — en
+löpande RNG förskjuts av prestandahoppet som hoppar förbi passerade slots.
+Schemareglerna är delad data på samma sätt som livscykeln:
+**`src/lib/nudge/schedule.cases.ts`**, körd från `src/lib/nudge/schedule.test.ts`
+(klient) och `server/src/nudge.test.ts` (server).
+
 ⚠️ **Auto-ignorering måste synas i urvalet.** `generate()` läser historiken,
 skriver `ignored` och väljer sedan aktivitet. Skicka den **uppdaterade**
 historiken till urvalet — annars räknas den nyss ignorerade fortfarande som
