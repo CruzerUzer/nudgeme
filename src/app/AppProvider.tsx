@@ -9,7 +9,6 @@ import {
 import type { ReactNode } from "react";
 import { getStore, isLocalMode, isServerMode } from "@/lib/db";
 import { NudgeService, type NudgeView } from "@/lib/nudge/service";
-import { nextNudgeTimestamp } from "@/lib/nudge/schedule";
 import { listPacks, getSelectedPack, bgUrl } from "@/lib/backgrounds";
 import { syncPush, removePushOnLogout } from "@/lib/push";
 import { apiFetch } from "@/lib/api";
@@ -176,17 +175,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     saveSchedule: async (s) => {
       await store.saveSchedule(s);
       // Lokalt läge: räkna om nästa aktivitets-tidpunkt så ändringen får effekt
-      // direkt (i serverläge gör servern det på PUT /schedule).
-      if (!isServerMode()) {
-        const next = nextNudgeTimestamp(
-          new Date(),
-          s,
-          await store.getUserId(),
-        );
-        await store.saveEngineState({
-          nextNudgeAt: next ? next.toISOString() : null,
-        });
-      }
+      // direkt (i serverläge gör servern det på PUT /schedule). Via service:n så
+      // dygnsräknaren följer med — en egen omräkning här tappade den och kunde
+      // ge en extra aktivitet samma dag.
+      if (!isServerMode()) await service.rescheduleNow(s);
       // Ingen reload här: Schema-vyn äger sitt lokala state och en reload skulle
       // skriva över fältet mitt i redigeringen.
     },

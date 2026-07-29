@@ -147,20 +147,53 @@ Schemareglerna är delad data på samma sätt som livscykeln:
 **`src/lib/nudge/schedule.cases.ts`**, körd från `src/lib/nudge/schedule.test.ts`
 (klient) och `server/src/nudge.test.ts` (server).
 
-✅ **Ett ändrat schema gäller DIREKT och får ge en extra nudge samma dag — det är
-RÄTT beteende (Adams beslut).** Ändrar användaren tidsspann eller antal per dag
-ritas dagens plan om från det nya schemat, även om dagens nudge redan gått ut.
-Har hon precis bett om ett nytt schema ska hon också få se det verka nu, inte
-i morgon.
+⚠️ **En stabil plan räcker INTE — dygnsräknaren håller taket när indata ändras.**
+Fröet gör planen stabil givet *fasta* indata. Ändras indata mitt i dygnet ritas
+planen om från noll, och en slot som redan gått ut kan återuppstå senare samma dag
+→ två aktiviteter trots "1 per dag". Motorn bokför därför `sentDayKey` +
+`sentCount` i sitt kv-tillstånd, och omräkningen hoppar över dygnets förbrukade
+slots (`deliveredToday` i `nextTimestamp`/`nextNudgeTimestamp`).
 
-> Ser du "två nudges samma dag" i ett testfall eller en rapport — kontrollera
-> först om schemat ändrades däremellan. Är det så: **lägg inte in ett dygnstak
-> och skjut inte fram ändringen till nästa dygn.** Det ser ut som buggen med
-> omslumpade tider, men är det inte. Testet *"ett ändrat schema får ge en nudge
-> till samma dag"* finns i båda schematesterna just för att fånga den "fixen".
-> (En sådan räkning har dessutom en fälla: "Överraska mig"-poster ligger i samma
-> `nudges`-tabell utan egen markering och skulle räknas som schemalagda — då
-> tystnar dagens riktiga nudge istället.)
+- **Skriv aldrig `nextNudgeAt` på egen hand.** Gå via `reschedule()` i
+  `server/src/engine.ts` respektive `scheduleNext`/`rescheduleNow` i
+  `src/lib/nudge/service.ts`. Buggen bodde i att omräkningen fanns i *fem* kopior
+  (motorn, `PUT /schedule`, `PUT /timezone`, `AppProvider.saveSchedule`) och
+  kopian i tidszonsrouten tappade räknaren.
+- **Även en DEPLOY ritar om planen.** Det var så den rapporterade dubbleringen
+  uppstod: fixen som gjorde tiderna stabila ändrade själva planens grund, medan
+  ett gammalt slumpat `nextNudgeAt` låg kvar i databasen. Det smällde först, och
+  omräkningen landade sedan på den *nya* planens tid — som fortfarande låg framåt
+  samma dag. Två nudges, en gång per användare. (Bevisat i efterhand: dygnets
+  andra nudge låg exakt på den fröade tiden, den första på ingen alls.)
+  **Ändrar du fröet, spannet eller tidszonshanteringen — räkna med samma
+  engångseffekt och kontrollera att räknaren fångar den.**
+- **Tidszonen kan också studsa.** Klienten skickar enhetens tidszon vid varje
+  appstart *och* varje fokus (`AppProvider.syncTimeZone`). Öppnas kontot både på
+  telefonen och i en webbläsare på en UTC-maskin studsar `timeZone` fram och
+  tillbaka, och varje studs ritade om dagens plan. Räknaren gör studsen ofarlig.
+- Räknaren fylls **inte** från `nudges`-tabellen: "Överraska mig"-poster ligger i
+  samma tabell utan egen markering och skulle räknas som schemalagda — då tystnar
+  dagens riktiga nudge i stället. Den är eget tillstånd, med allt vad det innebär.
+
+✅ **Ett ändrat schema gäller DIREKT, men nollställer inte räknaren (Adams beslut,
+reviderat).** Höjer användaren antalet per dag kommer resten av kvoten samma dag;
+sänker hon det under räknarens värde blir dygnet bara tyst resten av dagen. Ett
+flyttat tidsspann slår igenom direkt så länge kvoten är kvar — men återupplivar
+aldrig en redan levererad nudge. (Det tidigare beslutet "ett ändrat schema får ge
+en extra nudge samma dag" fanns bara för att en räknare saknades.)
+
+> Ser du "två nudges samma dag" i en rapport — leta efter en **omplanering mitt i
+> dygnet**, inte efter omslumpade tider. Och **ta inte bort dygnsräknaren** för att
+> återställa det gamla schemabeteendet. Fallen i `REPLAN_CASES`
+> (`schedule.cases.ts`) plus *"tidszonsbytet ger ingen extra nudge samma dag"*
+> (server) och *"ett flyttat tidsspann återupplivar inte dagens levererade nudge"*
+> (klient) finns just för att fånga den "fixen".
+
+> Admin-knappen "testa notis" (`triggerNudge`) **läser av kvoten, kör testet och
+> lägger tillbaka kvoten** (hela `engine`-kv:t, så även `nextNudgeAt`). Ett
+> push-test får aldrig tyst äta upp dagens riktiga aktivitet — `generate` räknar
+> upp kvoten inuti, så utan återställningen skulle det göra just det. Kvotläget
+> returneras (`delivered`/`planned`) och visas i admin-vyn.
 
 ⚠️ **Auto-ignorering måste synas i urvalet.** `generate()` läser historiken,
 skriver `ignored` och väljer sedan aktivitet. Skicka den **uppdaterade**

@@ -29,7 +29,7 @@ describe("selectEligible exclude", () => {
 // Klientens halva finns i src/lib/nudge/schedule.test.ts — ändra aldrig den ena
 // utan den andra.
 
-const { SCHEDULE_CASES, simulateSends, countPerDay } = await import(
+const { SCHEDULE_CASES, REPLAN_CASES, simulateSends, countPerDay } = await import(
   "../../src/lib/nudge/schedule.cases.js"
 );
 const { nextTimestamp } = await import("./nudge.js");
@@ -125,36 +125,19 @@ describe("nextTimestamp – antal nudges per dygn (delad tabell)", () => {
   });
 });
 
-describe("ett ändrat schema gäller direkt (Adams beslut)", () => {
-  // Dagens plan ritas om från det nya schemat, även om dagens nudge redan gått.
-  // Se CLAUDE.md: detta är RÄTT beteende — "fixa" det inte med ett dygnstak.
-  it("ett ändrat schema får ge en nudge till samma dag", () => {
-    const före = weekOf({
-      startMinutes: 9 * 60,
-      endMinutes: 21 * 60,
-      nudgesPerDay: 1,
+describe("dygnsräknaren styr omplaneringen (delad tabell)", () => {
+  // En omräkning mitt på dagen får aldrig återuppliva en slot som redan gått ut.
+  // Se src/lib/nudge/schedule.cases.ts för regeln och bakgrunden.
+  for (const c of REPLAN_CASES) {
+    it(c.name, () => {
+      // 12:00 i Europe/Stockholm: dygnets kvot är delvis förbrukad.
+      const nu = new Date("2026-07-01T10:00:00.000Z");
+      const schema = weekOf(c.changedTo ?? c.day);
+      const nästa = nextTimestamp(nu, schema, TZ, "u1", c.delivered);
+      expect(nästa).not.toBeNull();
+      expect({ sammaDygn: tzKey(nästa!) === tzKey(nu) }).toEqual({
+        sammaDygn: c.sameDay,
+      });
     });
-    // Dagens nudge har just gått ut kl 10:00 lokal tid ur det gamla schemat.
-    const nu = new Date("2026-07-01T08:00:00.000Z");
-    const gammal = nextTimestamp(nu, före, TZ, "u1");
-    // Användaren flyttar spannet till kvällen → planen ska rita om till ikväll,
-    // inte skjuta upp till i morgon.
-    const efter = weekOf({
-      startMinutes: 18 * 60,
-      endMinutes: 21 * 60,
-      nudgesPerDay: 1,
-    });
-    const ny = nextTimestamp(nu, efter, TZ, "u1")!;
-    const delar = new Intl.DateTimeFormat("sv-SE", {
-      timeZone: TZ,
-      hourCycle: "h23",
-      day: "2-digit",
-      hour: "2-digit",
-    }).formatToParts(ny);
-    const dag = delar.find((p) => p.type === "day")!.value;
-    const timme = +delar.find((p) => p.type === "hour")!.value;
-    expect(dag).toBe("01");
-    expect(timme).toBeGreaterThanOrEqual(18);
-    expect(ny.toISOString()).not.toBe(gammal?.toISOString());
-  });
+  }
 });

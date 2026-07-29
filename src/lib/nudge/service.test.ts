@@ -500,3 +500,55 @@ describe("motorn skickar inte fler nudges än schemat säger", () => {
     });
   }
 });
+
+// --- Omplanering mitt i dygnet ----------------------------------------------
+// Regression: en omräkning mitt på dagen ritade om planen från noll och kunde
+// återuppliva en slot som redan gått ut → två aktiviteter trots "1 per dag".
+// Rena schematester räcker inte: `nextNudgeTimestamp` kan vara helt korrekt
+// medan motorn anropar den utan dygnsräknaren. Serverns motsvarighet ligger i
+// server/src/engine.test.ts ("tidszonsbytet ger ingen extra nudge samma dag").
+
+describe("omräkning mitt i dygnet ger ingen extra nudge", () => {
+  it("ett flyttat tidsspann återupplivar inte dagens levererade nudge", async () => {
+    const store = new FakeStore();
+    store.activities = ["a1", "a2", "a3"].map((id) => act(id));
+    store.schedule = Array.from({ length: 7 }, (_, weekday) => ({
+      weekday,
+      enabled: true,
+      startMinutes: 9 * 60,
+      endMinutes: 21 * 60,
+      nudgesPerDay: 1,
+    }));
+    const service = new NudgeService(store);
+
+    // Kör dygn 1 så motorn kommer i normalläge, och mät sedan dygn 2 där
+    // användaren flyttar tidsspannet DIREKT EFTER att dagens nudge gått ut.
+    // Utan dygnsräknaren ritas kvällen om från noll → en andra aktivitet.
+    const start = new Date(2026, 6, 1, 0, 0, 0, 0);
+    const dag2 = new Date(2026, 6, 2, 0, 0, 0, 0);
+    for (let m = 0; m <= 24 * 60; m++) {
+      await service.refresh(new Date(start.getTime() + m * 60_000));
+    }
+    const före = store.nudges.length;
+    let flyttat = false;
+    for (let m = 0; m <= 24 * 60; m++) {
+      const now = new Date(dag2.getTime() + m * 60_000);
+      await service.refresh(now);
+      if (!flyttat && store.nudges.length > före) {
+        flyttat = true;
+        store.schedule = store.schedule.map((d) => ({
+          ...d,
+          startMinutes: 18 * 60,
+          endMinutes: 21 * 60,
+        }));
+        await service.rescheduleNow(store.schedule, now);
+      }
+    }
+    expect(flyttat).toBe(true); // annars mätte testet ingenting
+
+    const dag2Nudges = store.nudges.filter(
+      (n) => new Date(n.sentAt).getDate() === 2,
+    );
+    expect(dag2Nudges).toHaveLength(1);
+  });
+});

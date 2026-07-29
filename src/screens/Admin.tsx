@@ -77,9 +77,14 @@ export default function Admin() {
   async function testNudge() {
     await run(async () => {
       const r = await adminTestNudge();
+      // Kvoten läses av före testet och läggs tillbaka efteråt – visa den, så
+      // det syns svart på vitt att dagens riktiga aktivitet finns kvar.
+      const kvot = ` Dygnets kvot orörd: ${r.delivered} av ${r.planned} förbrukad${
+        r.delivered === 1 ? "" : "e"
+      }.`;
       setNotice(
         r.created
-          ? `Ny aktivitet skapad på Hem.${r.pushed ? " Pushnotis skickad." : " (Ingen push – aktivera notiser på den här enheten och välj nivå 2–4.)"}`
+          ? `Ny aktivitet skapad på Hem.${r.pushed ? " Pushnotis skickad." : " (Ingen push – aktivera notiser på den här enheten och välj nivå 2–4.)"}${kvot}`
           : "Ingen kvalificerad aktivitet att skicka just nu (alla kan vara frekvensbegränsade).",
       );
     });

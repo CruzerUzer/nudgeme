@@ -156,6 +156,12 @@ function zonedToUtc(y: number, mo: number, d: number, minutes: number, tz: strin
   return new Date(guess - offset);
 }
 
+/** Kalenderdygn (ÅÅÅÅ-MM-DD) i tidszonen `tz` — nyckeln dygnsräknaren gäller. */
+export function dayKeyIn(date: Date, tz: string = DEFAULT_TZ): string {
+  const p = tzParts(date, isValidTz(tz) ? tz : DEFAULT_TZ);
+  return `${p.year}-${p.month}-${p.day}`;
+}
+
 /**
  * Stabil "slump" ur en sträng (FNV-1a + mulberry32-steg). Samma nyckel ger alltid
  * samma tal i [0,1). Speglas i src/lib/nudge/schedule.ts — ändra alltid båda.
@@ -183,12 +189,20 @@ export function seededUnit(key: string): number {
  * tidpunkt senare samma dag ungefär varannan gång, och användaren fick 2–3
  * nudges trots "1 per dag". `seed` bör vara userId så att två användare inte får
  * exakt samma tider.
+ *
+ * `deliveredToday` = hur många nudges motorn redan levererat under dygnet. Fröet
+ * gör planen stabil givet FASTA indata, men ändras indata mitt i dygnet (t.ex.
+ * när klienten synkar enhetens tidszon) ritas planen om från noll och en slot som
+ * redan gått ut kunde återuppstå senare samma dag → två aktiviteter trots "1 per
+ * dag". Räknaren hoppar därför över dygnets förbrukade slots. Se
+ * src/lib/nudge/schedule.cases.ts (REPLAN_CASES) för reglerna.
  */
 export function nextTimestamp(
   now: Date,
   days: DaySchedule[],
   tz: string = DEFAULT_TZ,
   seed = "",
+  deliveredToday = 0,
 ): Date | null {
   const zone = isValidTz(tz) ? tz : DEFAULT_TZ;
   const nowMs = now.getTime();
@@ -209,10 +223,13 @@ export function nextTimestamp(
     // Prestanda: hoppa direkt till slotten nära `now` idag (annars O(n) med
     // dyra tz-konverteringar per slot – katastrofalt vid stora nudgesPerDay).
     // Framtida dagar räcker det med första sloten (allt ligger efter now).
-    const iStart =
+    const hopp =
       offset === 0 && slot > 0
         ? Math.max(0, Math.floor((nowMinutes - day.startMinutes) / slot) - 1)
         : 0;
+    // Dygnets förbrukade slots hoppas över (bara idag – i morgon är kvoten hel).
+    // Är hela kvoten förbrukad blir loopen tom och vi går vidare till nästa dag.
+    const iStart = offset === 0 ? Math.max(hopp, deliveredToday) : 0;
     // Fröet innehåller slot-indexet, så hoppet till `iStart` ovan ger samma
     // tider som en genomgång från 0 hade gett (en löpande RNG hade förskjutits).
     const dayKey = `${y}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
