@@ -93,7 +93,7 @@ function plannedTimesForDay(
 }
 
 /** Lokal dagnyckel (ÅÅÅÅ-MM-DD) — klientmotorn räknar i webbläsarens tidszon. */
-function localDayKey(date: Date): string {
+export function localDayKey(date: Date): string {
   const p = (n: number) => String(n).padStart(2, "0");
   return `${date.getFullYear()}-${p(date.getMonth() + 1)}-${p(date.getDate())}`;
 }
@@ -103,11 +103,18 @@ function localDayKey(date: Date): string {
  * Dagens tidpunkter är stabila (se `plannedTimesForDay`) och returneras i tur
  * och ordning; `seed` gör att olika användare får olika tider samma dag.
  * Returnerar null om inga dagar är aktiverade inom en vecka framåt.
+ *
+ * `deliveredToday` = hur många nudges motorn redan levererat under dygnet. Fröet
+ * gör planen stabil givet FASTA indata, men ändras indata mitt i dygnet ritas
+ * planen om från noll och en slot som redan gått ut kunde återuppstå senare samma
+ * dag → två aktiviteter trots "1 per dag". Räknaren hoppar därför över dygnets
+ * förbrukade slots. Se ./schedule.cases.ts (REPLAN_CASES) för reglerna.
  */
 export function nextNudgeTimestamp(
   now: Date,
   schedule: readonly DaySchedule[],
   seed = "",
+  deliveredToday = 0,
 ): Date | null {
   for (let offset = 0; offset < 8; offset++) {
     const date = new Date(now);
@@ -116,7 +123,11 @@ export function nextNudgeTimestamp(
     if (!day || !day.enabled) continue;
     const midnight = new Date(date);
     midnight.setHours(0, 0, 0, 0);
-    for (const minutes of plannedTimesForDay(day, localDayKey(date), seed)) {
+    // Dygnets förbrukade slots hoppas över (bara idag – i morgon är kvoten hel).
+    const planerade = plannedTimesForDay(day, localDayKey(date), seed);
+    for (const minutes of offset === 0
+      ? planerade.slice(deliveredToday)
+      : planerade) {
       const candidate = new Date(midnight.getTime() + minutes * 60_000);
       if (candidate.getTime() > now.getTime()) return candidate;
     }

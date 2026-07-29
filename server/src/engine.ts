@@ -4,6 +4,7 @@ import { repo } from "./repo.js";
 import {
   selectEligible,
   nextTimestamp,
+  dayKeyIn,
   AUTO_IGNORED_STATUSES,
   ENGAGED_STATUSES,
   VISIBLE_STATUSES,
@@ -29,12 +30,38 @@ if (vapidPublic && vapidPrivate) {
   pushReady = true;
 }
 
-function reschedule(userId: string, now: Date) {
+/** Motorns bokföring i kv: nästa tidpunkt + dygnets levererade kvot. */
+interface EngineKv {
+  nextNudgeAt: string | null;
+  sentDayKey?: string | null;
+  sentCount?: number;
+}
+
+/** Dygnets förbrukade kvot — 0 så fort räknaren gäller ett annat dygn. */
+function deliveredToday(st: EngineKv, dayKey: string): number {
+  return st.sentDayKey === dayKey ? (st.sentCount ?? 0) : 0;
+}
+
+/**
+ * Räkna om nästa tidpunkt. ENDA stället som får skriva `nextNudgeAt` — routerna
+ * i index.ts (PUT /schedule, PUT /timezone) kallar hit i stället för att göra sin
+ * egen omräkning. De hade varsin kopia, och kopian i tidszonsrouten tappade
+ * dygnsräknaren: planen ritades om från noll och en redan levererad slot kunde
+ * återuppstå senare samma dag (två aktiviteter trots "1 per dag").
+ */
+export function reschedule(userId: string, now: Date) {
   const days = repo.getSchedule(userId) as any[];
   const tz = repo.getTimeZone(userId);
+  const st = repo.getEngine(userId) as EngineKv;
+  const dayKey = dayKeyIn(now, tz);
+  const levererade = deliveredToday(st, dayKey);
   // userId som frö → varje användare får sina egna tider på dygnet.
-  const next = nextTimestamp(now, days, tz, userId);
-  repo.setKv(userId, "engine", { nextNudgeAt: next ? next.toISOString() : null });
+  const next = nextTimestamp(now, days, tz, userId, levererade);
+  repo.setKv(userId, "engine", {
+    nextNudgeAt: next ? next.toISOString() : null,
+    sentDayKey: dayKey,
+    sentCount: levererade,
+  });
 }
 
 function generate(userId: string, now: Date): boolean {
@@ -70,6 +97,16 @@ function generate(userId: string, now: Date): boolean {
     activityId: activity.id,
     sentAt: now.toISOString(),
     status: "sent",
+  });
+  // Bokför mot dygnets kvot. Allt motorn levererar räknas — även välkomstnudgen
+  // och admin-testet — annars kan en omplanering ge en extra aktivitet samma dag.
+  const tz = repo.getTimeZone(userId);
+  const dayKey = dayKeyIn(now, tz);
+  const st = repo.getEngine(userId) as EngineKv;
+  repo.setKv(userId, "engine", {
+    ...st,
+    sentDayKey: dayKey,
+    sentCount: deliveredToday(st, dayKey) + 1,
   });
   void pushToUser(userId, activity.title);
   return true;
@@ -115,6 +152,9 @@ export function triggerNudge(userId: string, now = new Date()) {
     }
   }
   const created = generate(userId, now); // skickar även push inuti
+  // Testnudgen förbrukar dygnets kvot som vilken annan aktivitet som helst, så
+  // planen måste ritas om — annars kommer dagens riktiga nudge ovanpå testet.
+  if (created) reschedule(userId, now);
   const prefs = repo.getPrefs(userId) as any;
   const pushed =
     pushReady && (prefs.level ?? 2) > 1 && repo.listPushSubs(userId).length > 0;

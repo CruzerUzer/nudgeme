@@ -1,7 +1,7 @@
-import type { DataStore } from "@/lib/db/store";
+import type { DataStore, EngineState } from "@/lib/db/store";
 import type { Activity, NudgeRecord } from "@/lib/types";
 import { selectNudge } from "./selection";
-import { nextNudgeTimestamp } from "./schedule";
+import { localDayKey, nextNudgeTimestamp } from "./schedule";
 
 // Klientsidans nudge-motor. Speglar serverns motor (server/src/engine.ts) — men
 // gör NudgeMe fullt körbar lokalt utan backend. Livscykelreglerna delas via
@@ -88,7 +88,7 @@ export class NudgeService {
       // Pausad: generera aldrig. Men ett tillfälle som passerat under pausen
       // skjuts fram, annars smäller en nudge direkt vid avpausning. Samma regel
       // som serverns processUser.
-      if (due) await this.scheduleNext(now, schedule);
+      if (due) await this.scheduleNext(now, schedule, engine);
       return this.currentNudge(now);
     }
 
@@ -97,7 +97,7 @@ export class NudgeService {
     // första schemalagda tidpunkten.
     if (!engine.nextNudgeAt) {
       const created = await this.generate(now);
-      await this.scheduleNext(now, schedule);
+      await this.scheduleNext(now, schedule, engine, !!created);
       return created ?? this.currentNudge(now);
     }
 
@@ -110,24 +110,54 @@ export class NudgeService {
     // blir identisk med serverns.
     const nudges = await this.store.listNudges();
     if (nudges.some((n) => ENGAGED.has(n.status))) {
-      await this.scheduleNext(now, schedule);
+      await this.scheduleNext(now, schedule, engine);
       return this.currentNudge(now);
     }
 
     const created = await this.generate(now);
-    await this.scheduleNext(now, schedule);
+    await this.scheduleNext(now, schedule, engine, !!created);
     return created;
   }
 
+  /**
+   * Räkna om nästa tidpunkt. ENDA stället som skriver motorns tillstånd — och
+   * dygnsräknaren måste följa med, annars kan en omräkning mitt i dygnet
+   * återuppliva en redan levererad slot (två aktiviteter trots "1 per dag").
+   * Speglar serverns `reschedule` i server/src/engine.ts.
+   */
   private async scheduleNext(
     now: Date,
     schedule: Awaited<ReturnType<DataStore["getSchedule"]>>,
+    engine: EngineState,
+    justSent = false,
   ) {
+    const dayKey = localDayKey(now);
+    const levererade =
+      (engine.sentDayKey === dayKey ? (engine.sentCount ?? 0) : 0) +
+      (justSent ? 1 : 0);
     // userId som frö → dagens tider är stabila men individuella.
-    const next = nextNudgeTimestamp(now, schedule, await this.userId());
+    const next = nextNudgeTimestamp(
+      now,
+      schedule,
+      await this.userId(),
+      levererade,
+    );
     await this.store.saveEngineState({
       nextNudgeAt: next ? next.toISOString() : null,
+      sentDayKey: dayKey,
+      sentCount: levererade,
     });
+  }
+
+  /**
+   * Ett ändrat schema ska slå igenom direkt (annars sitter nästa tidpunkt kvar
+   * ett dygn bort). Går via scheduleNext så dygnsräknaren följer med.
+   */
+  async rescheduleNow(
+    schedule: Awaited<ReturnType<DataStore["getSchedule"]>>,
+    now = new Date(),
+  ) {
+    await this.scheduleNext(now, schedule, await this.store.getEngineState());
   }
 
   /** Skapa en ny nudge från den kvalificerade poolen. */

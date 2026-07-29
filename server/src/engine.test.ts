@@ -9,7 +9,9 @@ process.env.NUDGEME_DB = join(tmp, "test.db");
 
 const { db } = await import("./db.js");
 const { repo } = await import("./repo.js");
-const { tick, initUserEngine, triggerNudge } = await import("./engine.js");
+const { tick, initUserEngine, triggerNudge, reschedule } = await import(
+  "./engine.js"
+);
 const { DEFAULT_NOTIFICATION_PREFS } = await import("./nudge.js");
 const { LIFECYCLE_CASES, CASE_ACTIVITIES } = await import(
   "../../src/lib/nudge/lifecycle.cases.js"
@@ -382,4 +384,91 @@ describe("motorn skickar inte fler nudges än schemat säger", () => {
       park(u);
     });
   }
+});
+
+// --- Omplanering mitt i dygnet ----------------------------------------------
+// Regression: klienten skickar enhetens tidszon vid VARJE appstart och fokus.
+// Byttes den (två enheter i olika tidszon, eller en webbläsare på en UTC-maskin)
+// ritade PUT /timezone om dagens plan från noll — en redan levererad slot kunde
+// återuppstå senare samma dag → två aktiviteter trots "1 per dag".
+// Klientens motsvarighet finns i src/lib/nudge/service.test.ts.
+
+describe("omräkning mitt i dygnet ger ingen extra nudge", () => {
+  function dygnsUser(u: string) {
+    mkUser(u);
+    for (const a of ["a1", "a2", "a3"]) addActivity(u, a); // frekvens A = inget tak
+    repo.setKv(u, "notifPrefs", {
+      ...DEFAULT_NOTIFICATION_PREFS,
+      quietStartMinutes: 0,
+      quietEndMinutes: 0,
+    });
+    repo.setTimeZone(u, "Europe/Stockholm");
+    repo.setKv(
+      u,
+      "schedule",
+      Array.from({ length: 7 }, (_, weekday) => ({
+        weekday,
+        enabled: true,
+        startMinutes: 9 * 60,
+        endMinutes: 21 * 60,
+        nudgesPerDay: 1,
+      })),
+    );
+  }
+
+  const dagnyckel = new Intl.DateTimeFormat("sv-SE", {
+    timeZone: "Europe/Stockholm",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+
+  it("tidszonsbytet ger ingen extra nudge samma dag", () => {
+    const u = "tz-studs";
+    dygnsUser(u);
+    // Midnatt i Europe/Stockholm. Välkomstnudgen räknas bort (bara dygn 2 mäts).
+    const start = new Date("2026-06-30T22:00:00.000Z");
+    initUserEngine(u, start);
+    for (let m = 1; m <= 24 * 60; m++) tick(new Date(start.getTime() + m * 60_000));
+
+    // Dygn 2: telefonen (Stockholm) och en webbläsare på en UTC-maskin skickar
+    // sin tidszon varannan timme — exakt vad PUT /api/timezone gör.
+    const dag2 = new Date(start.getTime() + 86_400_000);
+    for (let m = 1; m <= 24 * 60; m++) {
+      const now = new Date(dag2.getTime() + m * 60_000);
+      tick(now);
+      if (m % 120 === 0) {
+        const tz = (m / 120) % 2 === 0 ? "Europe/Stockholm" : "UTC";
+        if (tz !== repo.getTimeZone(u)) {
+          repo.setTimeZone(u, tz);
+          reschedule(u, now);
+        }
+      }
+    }
+
+    const nyckel = dagnyckel.format(new Date(dag2.getTime() + 12 * 3_600_000));
+    const antal = repo
+      .listNudges(u)
+      .filter((n) => dagnyckel.format(new Date(n.sentAt)) === nyckel).length;
+    expect({ dag: nyckel, antal }).toEqual({ dag: nyckel, antal: 1 });
+    park(u);
+  });
+
+  it("admin-testet förbrukar dygnets kvot i stället för att lägga sig ovanpå", () => {
+    const u = "trigger-kvot";
+    dygnsUser(u);
+    const start = new Date("2026-06-30T22:00:00.000Z");
+    repo.setKv(u, "engine", { nextNudgeAt: null });
+    reschedule(u, start); // planera dagen utan välkomstnudge
+
+    triggerNudge(u, new Date(start.getTime() + 9 * 3_600_000)); // kl 09 lokalt
+    for (let m = 1; m <= 24 * 60; m++) tick(new Date(start.getTime() + m * 60_000));
+
+    const nyckel = dagnyckel.format(new Date(start.getTime() + 12 * 3_600_000));
+    const antal = repo
+      .listNudges(u)
+      .filter((n) => dagnyckel.format(new Date(n.sentAt)) === nyckel).length;
+    expect({ dag: nyckel, antal }).toEqual({ dag: nyckel, antal: 1 });
+    park(u);
+  });
 });

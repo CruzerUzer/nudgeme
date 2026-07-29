@@ -21,14 +21,13 @@ import {
   type AuthedRequest,
 } from "./auth.js";
 import { repo } from "./repo.js";
-import { initUserEngine, startEngine, triggerNudge } from "./engine.js";
+import { initUserEngine, reschedule, startEngine, triggerNudge } from "./engine.js";
 import * as bg from "./backgrounds.js";
 import { readFileSync } from "node:fs";
 import {
   DEFAULT_FREQUENCY,
   DEFAULT_NOTIFICATION_PREFS,
   defaultWeekSchedule,
-  nextTimestamp,
   isValidTz,
 } from "./nudge.js";
 
@@ -172,17 +171,9 @@ for (const [path, key] of [
     // När schemat ändras: räkna om nästa aktivitets-tidpunkt direkt, annars
     // sitter den kvar på den gamla (t.ex. ett dygn bort) och nya inställningar
     // (som fler per dag) får ingen effekt förrän den gamla tiden passerat.
-    if (key === "schedule") {
-      const next = nextTimestamp(
-        new Date(),
-        body ?? [],
-        repo.getTimeZone(req.userId!),
-        req.userId!,
-      );
-      repo.setKv(req.userId!, "engine", {
-        nextNudgeAt: next ? next.toISOString() : null,
-      });
-    }
+    // Dygnsräknaren ligger kvar: höjt antal ger resten av kvoten idag, sänkt
+    // antal under räknaren tystnar bara resten av dygnet (Adams beslut).
+    if (key === "schedule") reschedule(req.userId!, new Date());
     res.json({ ok: true });
   });
 }
@@ -194,11 +185,11 @@ api.put("/timezone", (req: AuthedRequest, res) => {
   if (!isValidTz(tz)) return res.status(400).json({ error: "Ogiltig tidszon." });
   const prev = repo.getTimeZone(req.userId!);
   repo.setTimeZone(req.userId!, tz);
-  if (tz !== prev) {
-    const days = repo.getSchedule(req.userId!) as any[];
-    const next = nextTimestamp(new Date(), days, tz, req.userId!);
-    repo.setKv(req.userId!, "engine", { nextNudgeAt: next ? next.toISOString() : null });
-  }
+  // Bara vid faktiskt byte — och omräkningen respekterar dygnsräknaren, annars
+  // återupplivas en redan levererad slot. Klienten skickar tidszonen vid VARJE
+  // appstart och fokus, så en enhet med annan tidszon (t.ex. en webbläsare på en
+  // UTC-maskin) fick kontot att studsa och gav en extra aktivitet samma dag.
+  if (tz !== prev) reschedule(req.userId!, new Date());
   res.json({ ok: true, tz });
 });
 

@@ -7,9 +7,16 @@ import type {
   PushSubscriptionRecord,
 } from "@/lib/types";
 
-/** Motorns bokföring: när nästa nudge ska genereras. */
+/** Motorns bokföring: när nästa nudge ska genereras + dygnets levererade kvot. */
 export interface EngineState {
   nextNudgeAt: string | null;
+  /** Dygnet (ÅÅÅÅ-MM-DD) som `sentCount` gäller. Saknas i äldre sparat läge. */
+  sentDayKey?: string | null;
+  /**
+   * Antal nudges motorn levererat under `sentDayKey`. Håller taket även när
+   * planen ritas om mitt i dygnet — se src/lib/nudge/schedule.cases.ts.
+   */
+  sentCount?: number;
 }
 
 // Persistensgränssnitt. Två implementationer: LocalStore (localStorage, för

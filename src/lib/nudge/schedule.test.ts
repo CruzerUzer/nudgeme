@@ -7,6 +7,7 @@ import {
   nextNudgeTimestamp,
 } from "./schedule";
 import {
+  REPLAN_CASES,
   SCHEDULE_CASES,
   countPerDay,
   simulateSends,
@@ -134,28 +135,19 @@ describe("nextNudgeTimestamp – antal nudges per dygn (delad tabell)", () => {
   });
 });
 
-describe("ett ändrat schema gäller direkt (Adams beslut)", () => {
-  // Dagens plan ritas om från det nya schemat, även om dagens nudge redan gått.
-  // Se CLAUDE.md: detta är RÄTT beteende — "fixa" det inte med ett dygnstak.
-  it("ett ändrat schema får ge en nudge till samma dag", () => {
-    const före = weekOf({
-      startMinutes: 9 * 60,
-      endMinutes: 21 * 60,
-      nudgesPerDay: 1,
+describe("dygnsräknaren styr omplaneringen (delad tabell)", () => {
+  // En omräkning mitt på dagen får aldrig återuppliva en slot som redan gått ut.
+  // Se ./schedule.cases.ts för regeln och bakgrunden.
+  for (const c of REPLAN_CASES) {
+    it(c.name, () => {
+      // Mitt på dagen: dygnets kvot är delvis förbrukad.
+      const nu = new Date(2026, 6, 1, 12, 0, 0, 0);
+      const schema = weekOf(c.changedTo ?? c.day);
+      const nästa = nextNudgeTimestamp(nu, schema, "u1", c.delivered);
+      expect(nästa).not.toBeNull();
+      expect({ sammaDygn: localKey(nästa!) === localKey(nu) }).toEqual({
+        sammaDygn: c.sameDay,
+      });
     });
-    // Dagens nudge har just gått ut kl 10:00 ur det gamla schemat.
-    const nu = new Date(2026, 6, 1, 10, 0, 0, 0);
-    const gammal = nextNudgeTimestamp(nu, före, "u1");
-    // Användaren flyttar spannet till kvällen → planen ska rita om till ikväll,
-    // inte skjuta upp till i morgon.
-    const efter = weekOf({
-      startMinutes: 18 * 60,
-      endMinutes: 21 * 60,
-      nudgesPerDay: 1,
-    });
-    const ny = nextNudgeTimestamp(nu, efter, "u1")!;
-    expect(ny.getDate()).toBe(nu.getDate());
-    expect(ny.getHours()).toBeGreaterThanOrEqual(18);
-    expect(ny.toISOString()).not.toBe(gammal?.toISOString());
-  });
+  }
 });

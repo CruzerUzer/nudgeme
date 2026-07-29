@@ -48,6 +48,80 @@ export const SCHEDULE_CASES: ScheduleCase[] = [
 ];
 
 /**
+ * Dygnsräknaren: hur många nudges som redan levererats under dygnet styr vilka
+ * slots som återstår. Utan den kunde en omräkning mitt på dagen — t.ex. när
+ * klienten synkar enhetens tidszon — rita om planen från noll och återuppliva en
+ * slot som redan gått ut, så användaren fick två aktiviteter trots "1 per dag".
+ * Fröet gör planen stabil givet FASTA indata; räknaren håller taket även när
+ * indata ändras mitt i dygnet.
+ *
+ * Adams beslut (ersätter det tidigare "ett ändrat schema får ge en extra nudge
+ * samma dag"): räknaren nollställs ALDRIG mitt i ett dygn, inte heller av en
+ * schemaändring. Höjer användaren antalet per dag kommer resten av kvoten direkt;
+ * sänker hon det under räknarens värde blir dygnet bara tyst resten av dagen.
+ */
+export interface ReplanCase {
+  name: string;
+  /** Schemat som gällde när dygnets nudges gick ut. */
+  day: CaseDay;
+  /** Antal nudges motorn redan levererat under dygnet. */
+  delivered: number;
+  /** Schemat vid omräkningen (utelämnat = oförändrat). */
+  changedTo?: CaseDay;
+  /** Ska nästa tidpunkt ligga kvar samma dygn? */
+  sameDay: boolean;
+}
+
+const SPAN = { startMinutes: 9 * 60, endMinutes: 21 * 60 };
+
+export const REPLAN_CASES: ReplanCase[] = [
+  {
+    // Kärnfallet: tidszonssynken (PUT /timezone) räknade om planen och gav en
+    // andra aktivitet samma dag fast användaren inte bett om något.
+    name: "omräkning mitt på dagen ger inget nytt när dygnets kvot är förbrukad",
+    day: { ...SPAN, nudgesPerDay: 1 },
+    delivered: 1,
+    sameDay: false,
+  },
+  {
+    name: "oförbrukad kvot ligger kvar samma dygn",
+    day: { ...SPAN, nudgesPerDay: 3 },
+    delivered: 1,
+    sameDay: true,
+  },
+  {
+    name: "höjt antal per dag gäller direkt och ger resten av kvoten idag",
+    day: { ...SPAN, nudgesPerDay: 1 },
+    delivered: 1,
+    changedTo: { ...SPAN, nudgesPerDay: 3 },
+    sameDay: true,
+  },
+  {
+    name: "sänkt antal under räknaren tystnar resten av dygnet",
+    day: { ...SPAN, nudgesPerDay: 3 },
+    delivered: 2,
+    changedTo: { ...SPAN, nudgesPerDay: 1 },
+    sameDay: false,
+  },
+  {
+    // Ett ändrat schema gäller fortfarande DIREKT så länge kvoten är kvar —
+    // det halva av Adams gamla beslut som står kvar.
+    name: "flyttat tidsspann gäller direkt när inget gått ut ännu",
+    day: { ...SPAN, nudgesPerDay: 1 },
+    delivered: 0,
+    changedTo: { startMinutes: 18 * 60, endMinutes: 21 * 60, nudgesPerDay: 1 },
+    sameDay: true,
+  },
+  {
+    name: "flyttat tidsspann återupplivar inte en förbrukad kvot",
+    day: { ...SPAN, nudgesPerDay: 1 },
+    delivered: 1,
+    changedTo: { startMinutes: 18 * 60, endMinutes: 21 * 60, nudgesPerDay: 1 },
+    sameDay: false,
+  },
+];
+
+/**
  * Simulerar motorns loop: skicka vid nästa tidpunkt, räkna om nästa därifrån,
  * osv. Returnerar tidpunkterna för de nudges som skulle ha skickats.
  *

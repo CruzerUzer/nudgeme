@@ -108,6 +108,12 @@ sudo certbot --nginx -d nudgeme.faris.se
   **OBS:** `build:server` skriver över den delade `dist/` → bygg om testinstansen
   med `build:test` efteråt (se Testinstans-avsnittet).
 - **Bara frontend:** `./deploy/deploy-frontend.sh` (bygg lokalt + rsync).
+- **Dygnsräknaren (`sentDayKey`/`sentCount`) saknas i redan sparat kv-läge.** Ingen
+  migrering behövs — den fylls i vid nästa omplanering och räknas som 0 fram tills
+  dess. Praktisk följd: *deploydagen* kan en användare vars nudge redan gått ut
+  fortfarande få en extra om tidszonen byts samma dag. Självläker till nästa dygn.
+  Räknaren fylls medvetet inte från `nudges`-tabellen (se `CLAUDE.md` — "Överraska
+  mig"-poster ligger där utan egen markering och skulle tysta dagens riktiga nudge).
 - **Prod-branch:** VM:en står på `main` och gör `git pull` – merga till `main`
   och pusha innan `update-nudgeme.sh` körs.
 - **Om `main` någon gång force-pushas:** VM:ens klon divergerar och
