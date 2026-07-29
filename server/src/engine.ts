@@ -9,6 +9,7 @@ import {
   ENGAGED_STATUSES,
   VISIBLE_STATUSES,
   type Activity,
+  type DaySchedule,
   type NudgeRow,
 } from "./nudge.js";
 
@@ -40,6 +41,11 @@ interface EngineKv {
 /** Dygnets förbrukade kvot — 0 så fort räknaren gäller ett annat dygn. */
 function deliveredToday(st: EngineKv, dayKey: string): number {
   return st.sentDayKey === dayKey ? (st.sentCount ?? 0) : 0;
+}
+
+/** Veckodag (0 = söndag) för en dagnyckel. Noon-UTC undviker offsetkanterna. */
+function weekdayOf(dayKey: string): number {
+  return new Date(`${dayKey}T12:00:00Z`).getUTCDay();
 }
 
 /**
@@ -142,23 +148,35 @@ export function initUserEngine(userId: string, now = new Date()) {
 
 /**
  * Tvinga fram en ny aktivitet + pushnotis NU (admin-test). Ignorerar ev.
- * väntande så testet alltid ger en ny aktuell aktivitet. Returnerar om en
- * aktivitet skapades och om en notis faktiskt kunde skickas.
+ * väntande så testet alltid ger en ny aktuell aktivitet.
+ *
+ * Testet får varken förbruka dygnets kvot eller flytta nästa tidpunkt: motorns
+ * bokföring läses av före, och läggs tillbaka oförändrad efteråt. Utan
+ * återställningen skulle ett push-test kl 09 tyst äta upp dagens riktiga nudge —
+ * `generate` räknar upp kvoten som för vilken levererad aktivitet som helst.
+ *
+ * Returnerar även dygnets kvotläge så admin ser vad testet INTE rörde.
  */
 export function triggerNudge(userId: string, now = new Date()) {
+  const före = repo.getEngine(userId) as EngineKv;
+  const tz = repo.getTimeZone(userId);
+  const dayKey = dayKeyIn(now, tz);
+  const delivered = deliveredToday(före, dayKey);
+  const days = repo.getSchedule(userId) as DaySchedule[];
+  const planned = days.find((d) => d.weekday === weekdayOf(dayKey))?.nudgesPerDay ?? 0;
+
   for (const n of repo.listNudges(userId)) {
     if (VISIBLE_STATUSES.has(n.status)) {
       repo.upsertNudge(userId, { ...n, status: "ignored" });
     }
   }
   const created = generate(userId, now); // skickar även push inuti
-  // Testnudgen förbrukar dygnets kvot som vilken annan aktivitet som helst, så
-  // planen måste ritas om — annars kommer dagens riktiga nudge ovanpå testet.
-  if (created) reschedule(userId, now);
+  repo.setKv(userId, "engine", före); // lägg tillbaka kvot + nästa tidpunkt
+
   const prefs = repo.getPrefs(userId) as any;
   const pushed =
     pushReady && (prefs.level ?? 2) > 1 && repo.listPushSubs(userId).length > 0;
-  return { created, pushed };
+  return { created, pushed, delivered, planned };
 }
 
 function processUser(userId: string, now: Date) {

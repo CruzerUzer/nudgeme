@@ -159,7 +159,15 @@ slots (`deliveredToday` i `nextTimestamp`/`nextNudgeTimestamp`).
   `src/lib/nudge/service.ts`. Buggen bodde i att omräkningen fanns i *fem* kopior
   (motorn, `PUT /schedule`, `PUT /timezone`, `AppProvider.saveSchedule`) och
   kopian i tidszonsrouten tappade räknaren.
-- **Utlösaren var tidszonen.** Klienten skickar enhetens tidszon vid varje
+- **Även en DEPLOY ritar om planen.** Det var så den rapporterade dubbleringen
+  uppstod: fixen som gjorde tiderna stabila ändrade själva planens grund, medan
+  ett gammalt slumpat `nextNudgeAt` låg kvar i databasen. Det smällde först, och
+  omräkningen landade sedan på den *nya* planens tid — som fortfarande låg framåt
+  samma dag. Två nudges, en gång per användare. (Bevisat i efterhand: dygnets
+  andra nudge låg exakt på den fröade tiden, den första på ingen alls.)
+  **Ändrar du fröet, spannet eller tidszonshanteringen — räkna med samma
+  engångseffekt och kontrollera att räknaren fångar den.**
+- **Tidszonen kan också studsa.** Klienten skickar enhetens tidszon vid varje
   appstart *och* varje fokus (`AppProvider.syncTimeZone`). Öppnas kontot både på
   telefonen och i en webbläsare på en UTC-maskin studsar `timeZone` fram och
   tillbaka, och varje studs ritade om dagens plan. Räknaren gör studsen ofarlig.
@@ -181,9 +189,11 @@ en extra nudge samma dag" fanns bara för att en räknare saknades.)
 > (server) och *"ett flyttat tidsspann återupplivar inte dagens levererade nudge"*
 > (klient) finns just för att fånga den "fixen".
 
-> Admin-knappen "testa notis" (`triggerNudge`) **förbrukar dygnets kvot** och
-> planerar om. Testar du push kl 09 kommer alltså dagens riktiga nudge inte
-> ovanpå. Alternativet vore att testet garanterat ger två aktiviteter den dagen.
+> Admin-knappen "testa notis" (`triggerNudge`) **läser av kvoten, kör testet och
+> lägger tillbaka kvoten** (hela `engine`-kv:t, så även `nextNudgeAt`). Ett
+> push-test får aldrig tyst äta upp dagens riktiga aktivitet — `generate` räknar
+> upp kvoten inuti, så utan återställningen skulle det göra just det. Kvotläget
+> returneras (`delivered`/`planned`) och visas i admin-vyn.
 
 ⚠️ **Auto-ignorering måste synas i urvalet.** `generate()` läser historiken,
 skriver `ignored` och väljer sedan aktivitet. Skicka den **uppdaterade**

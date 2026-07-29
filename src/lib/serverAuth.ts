@@ -91,11 +91,17 @@ export function adminSetRegistration(open: boolean) {
   });
 }
 
-/** Admin-test: tvinga fram en ny aktivitet + pushnotis nu (till admins konto). */
+/**
+ * Admin-test: tvinga fram en ny aktivitet + pushnotis nu (till admins konto).
+ * `delivered`/`planned` = dygnets kvotläge, som testet läser av men lämnar orört.
+ */
 export function adminTestNudge() {
-  return apiFetch<{ created: boolean; pushed: boolean }>("/api/admin/test-nudge", {
-    method: "POST",
-  });
+  return apiFetch<{
+    created: boolean;
+    pushed: boolean;
+    delivered: number;
+    planned: number;
+  }>("/api/admin/test-nudge", { method: "POST" });
 }
 
 /** Publik (pre-auth): får nya registrera sig? */

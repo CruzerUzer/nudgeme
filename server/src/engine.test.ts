@@ -454,21 +454,39 @@ describe("omräkning mitt i dygnet ger ingen extra nudge", () => {
     park(u);
   });
 
-  it("admin-testet förbrukar dygnets kvot i stället för att lägga sig ovanpå", () => {
+  it("admin-testet lämnar dygnets kvot och nästa tidpunkt orörda", () => {
+    // Testnudgen ska varken äta dagens riktiga aktivitet eller flytta planen:
+    // `generate` räknar upp kvoten, och triggerNudge lägger tillbaka den.
     const u = "trigger-kvot";
     dygnsUser(u);
     const start = new Date("2026-06-30T22:00:00.000Z");
     repo.setKv(u, "engine", { nextNudgeAt: null });
     reschedule(u, start); // planera dagen utan välkomstnudge
+    const före = repo.getEngine(u);
 
-    triggerNudge(u, new Date(start.getTime() + 9 * 3_600_000)); // kl 09 lokalt
+    const res = triggerNudge(u, new Date(start.getTime() + 9 * 3_600_000)); // kl 09
+
+    expect(res).toMatchObject({ created: true, delivered: 0, planned: 1 });
+    expect(repo.getEngine(u)).toEqual(före);
+    // Och dagens riktiga nudge kommer fortfarande, som planerat.
     for (let m = 1; m <= 24 * 60; m++) tick(new Date(start.getTime() + m * 60_000));
-
     const nyckel = dagnyckel.format(new Date(start.getTime() + 12 * 3_600_000));
     const antal = repo
       .listNudges(u)
       .filter((n) => dagnyckel.format(new Date(n.sentAt)) === nyckel).length;
-    expect({ dag: nyckel, antal }).toEqual({ dag: nyckel, antal: 1 });
+    expect({ dag: nyckel, antal }).toEqual({ dag: nyckel, antal: 2 }); // test + riktig
+    park(u);
+  });
+
+  it("dygnets kvot läses av och rapporteras till admin", () => {
+    const u = "trigger-kvot-avläst";
+    dygnsUser(u);
+    const start = new Date("2026-06-30T22:00:00.000Z");
+    initUserEngine(u, start); // välkomstnudgen förbrukar dygnets enda slot
+
+    const res = triggerNudge(u, new Date(start.getTime() + 9 * 3_600_000));
+
+    expect(res).toMatchObject({ delivered: 1, planned: 1 });
     park(u);
   });
 });
