@@ -19,6 +19,18 @@ Framtida arbete som medvetet skjutits upp.
 - Ev. framtida polish: visa antal köade ändringar i bannern; städa utgångna
   push-subs; migrera token till IDB om helt-stängd-app-replay i SW önskas.
 
+## `PUT /api/engine` – rutt som ingen klient använder (öppen lucka)
+- Nyckel/värde-loopen i `server/src/index.ts` exponerar `engine` för både GET och
+  PUT. I serverläge skriver klienten **aldrig** motorns tillstånd
+  (`saveEngineState` anropas bara från `NudgeService.scheduleNext`, som bara körs
+  i lokalt läge) — så PUT-halvan är oanvänd.
+- Varför det är värt att stänga: dygnsräknaren vaktar kvoten när nästa tidpunkt
+  *schemaläggs*, inte när nudgen *levereras*. En klient som sätter `nextNudgeAt`
+  till "nu" om och om igen kan alltså mata fram nudges förbi dygnstaket.
+- Förslag: ta bort `engine` ur PUT-loopen (behåll GET), eller låt motorn
+  kontrollera kvoten även vid leverans. Ej brådskande — kräver inloggning och
+  drabbar bara det egna kontot.
+
 ## Testinstans – överlever inte reboot (medvetet nedprioriterat)
 - Dev-backend (`:4303`) och `vite preview` (`:4305`) för test-PWA:n körs via
   `nohup`, inte under en process-manager, så de dör vid en omstart av hemmalinux
@@ -27,6 +39,10 @@ Framtida arbete som medvetet skjutits upp.
   upp automatiskt efter reboot. Inte brådskande – test startas sällan om.
 
 ## Klart tidigare
+- ✅ **Dygnsräknaren i drift** (deployad + verifierad i prod 2026-07-30): tre
+  konton, exakt 1 nudge var, alla på den fröade tiden på minuten, och
+  `sentDayKey`/`sentCount` ifyllda i motorns kv. Bakgrund och fällor:
+  `CLAUDE.md` → "En stabil plan räcker INTE".
 - ✅ **Produktion i drift på `nudgeme.faris.se`** (verifierat 2026-07-28):
   backend under PM2 som `nudgeme-api`, eget `JWT_SECRET` och `VAPID_*` satta i
   `/srv/NudgeMe/server/.env`, push aktiverad, HTTPS via nginx + certbot.

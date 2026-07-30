@@ -227,5 +227,16 @@ förbruka ditt tak.
   ```
   Gäller dubbelt när samma regel finns i båda motorerna: kontrollera att testet
   blir rött för *var och en* av dem, annars skyddar du bara den ena.
+  Ofta räcker det att **sabotera anropsstället** i stället för att rulla tillbaka
+  (t.ex. skicka `0` där dygnsräknaren ska in) — snabbare och träffar just den
+  koppling testet påstår sig skydda.
+
+  **Blir testet grönt trots sabotaget är det testet som är fel, inte sabotaget.**
+  Det hände i dubbelnudge-jakten: klienttestet sparade om ett *oförändrat* schema,
+  och eftersom klientmotorn räknar i webbläsarens egen tid kunde den omräkningen
+  aldrig flytta planen — testet kunde alltså inte bli rött ens med buggen kvar.
+  Scenariot måste vara något **just den motorn faktiskt kan råka ut för**: servern
+  har tidszonsbyten, klienten bara schemaändringar. Två motorer, samma regel — men
+  inte alltid samma utlösare.
 - En aktivitet har exakt en valfri bild (`imageUrl`). Seeda inga bilder.
 - Se `TODO.md` för medvetet uppskjutet arbete.

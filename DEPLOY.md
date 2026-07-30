@@ -108,12 +108,19 @@ sudo certbot --nginx -d nudgeme.faris.se
   **OBS:** `build:server` skriver över den delade `dist/` → bygg om testinstansen
   med `build:test` efteråt (se Testinstans-avsnittet).
 - **Bara frontend:** `./deploy/deploy-frontend.sh` (bygg lokalt + rsync).
-- **Dygnsräknaren (`sentDayKey`/`sentCount`) saknas i redan sparat kv-läge.** Ingen
-  migrering behövs — den fylls i vid nästa omplanering och räknas som 0 fram tills
-  dess. Praktisk följd: *deploydagen* kan en användare vars nudge redan gått ut
-  fortfarande få en extra om tidszonen byts samma dag. Självläker till nästa dygn.
-  Räknaren fylls medvetet inte från `nudges`-tabellen (se `CLAUDE.md` — "Överraska
-  mig"-poster ligger där utan egen markering och skulle tysta dagens riktiga nudge).
+- **En deploy som ändrar planens grund ger en engångsdubblering.** Det gamla
+  `nextNudgeAt` i databasen hör inte till den nya planen: smäller det *före* den
+  nya planerade tiden får användaren två nudges det dygnet (ungefär ett myntkast
+  per användare). Det var exakt så buggen 2026-07-29 uppstod — dagen efter att
+  stabila-plan-fixen deployades. Dygnsräknaren fångar det numera, men **räkna med
+  effekten varje gång du rör fröet, spannet eller tidszonshanteringen**, och
+  kontrollera dygnet efter (recept under "Fällor & tips" → prod-forensik).
+  Räknaren (`sentDayKey`/`sentCount`) behöver ingen migrering — den fylls i vid
+  nästa omplanering och räknas som 0 tills dess. Den fylls medvetet **inte** från
+  `nudges`-tabellen (se `CLAUDE.md` — "Överraska mig"-poster ligger där utan egen
+  markering och skulle tysta dagens riktiga nudge).
+  *Utfall 2026-07-30:* verifierat i drift — tre konton, exakt 1 nudge var, alla på
+  den fröade tiden, `sentCount: 1` i motorns kv.
 - **Prod-branch:** VM:en står på `main` och gör `git pull` – merga till `main`
   och pusha innan `update-nudgeme.sh` körs.
 - **Om `main` någon gång force-pushas:** VM:ens klon divergerar och
@@ -188,12 +195,12 @@ test och prod kan ligga parallellt på samma telefon. Nås **bara i tailnet**.
   cd server && NUDGEME_DB=/tmp/x.db npx tsx <script>.mts   # importera repo/motorn isolerat
   ```
   (Så verifierades t.ex. offline-`done`-guarden i `repo.upsertNudge`.)
-- **Buggrapport från prod? Reproducera lokalt istället för att gräva i prod.**
-  Prod-DB:n innehåller riktiga personers data och rörs inte utan att Adam
-  uttryckligen ber om det. Nästan allt går ändå att återskapa: skapa en användare
-  i en temp-DB (ovan) och kör `tick()` **minut för minut** över några dygn med en
-  påhittad `now`, och räkna resultatet. Så bevisades "2–3 nudges per dag" utan att
-  någon prod-rad lästes:
+- **Buggrapport från prod? Reproducera lokalt FÖRST — men tro inte att en lyckad
+  reproduktion är diagnosen.** Prod-DB:n innehåller riktiga personers data och rörs
+  inte utan att Adam uttryckligen ber om det. Nästan allt går ändå att återskapa:
+  skapa en användare i en temp-DB (ovan) och kör `tick()` **minut för minut** över
+  några dygn med en påhittad `now`, och räkna resultatet. Så bevisades "2–3 nudges
+  per dag" utan att någon prod-rad lästes:
   ```ts
   initUserEngine(u, start);
   for (let m = 1; m <= 5 * 24 * 60; m++) tick(new Date(start.getTime() + m * 60_000));
@@ -201,6 +208,37 @@ test och prod kan ligga parallellt på samma telefon. Nås **bara i tailnet**.
   Motorn tar `now` som parameter överallt just för att detta ska gå — behåll det.
   Blir felet reproducerat: flytta simuleringen till ett riktigt test i **båda**
   motortesterna istället för att låta den ligga som lösryckt skript.
+
+  ⚠️ **Fällan (2026-07-29):** en lokal reproduktion av "två nudges samma dygn"
+  hittade en *äkta* bugg (tidszonsstudsen) som visade sig **inte** vara den
+  rapporterade. Den riktiga orsaken var en helt annan. En reproduktion bevisar
+  bara att en väg finns — inte att det var den vägen. Bekräfta mot verkligheten
+  innan du tror på din hypotes.
+
+- **Prod-forensik: jämför utfallet mot den fröade planen.** Motorns tider är
+  deterministiska, så du kan räkna ut vad som *borde* ha hänt och jämföra med vad
+  som hände — utan att gissa. Det avgjorde dubbelnudge-jakten på ett par minuter:
+  ```ts
+  // minut på dygnet för slot i, givet schemat start..slut och n per dag
+  const m = Math.round(start + i * ((slut - start) / n)
+                       + seededUnit(`${userId}|${ÅÅÅÅ-MM-DD}|${i}`) * ((slut - start) / n));
+  ```
+  Ligger en nudge **på** planen är den schemalagd. Ligger den bredvid kommer den
+  från något annat: ett gammalt `nextNudgeAt`, "Överraska mig", eller admin-testet.
+  I det fallet låg dygnets *andra* nudge exakt på planen och den *första* på
+  ingenting — vilket pekade rakt på ett kvarlämnat värde från före deployen,
+  inte på omslumpade tider.
+
+- **Läsning av prod-DB:n — så här, när Adam bett om det.** Öppna alltid read-only
+  och begränsa till de konton frågan gäller. Aldrig `select *` över alla
+  användare, och aldrig användarnamn eller aktivitetstitlar i svar, commits eller
+  filer (se `CLAUDE.md`):
+  ```bash
+  ssh ubuntu@potterytracker.faris.se \
+    "sqlite3 'file:/srv/NudgeMe/server/data/nudgeme.db?mode=ro' \"select substr(user_id,1,8), substr(sent_at,1,19), status from nudges where user_id in ('<id>') and sent_at >= '<ÅÅÅÅ-MM-DD>';\""
+  ```
+  Motorns bokföring (`select value from kv where key='engine' and user_id=...`)
+  visar `nextNudgeAt` + dygnsräknaren och är oftast mer avslöjande än nudge-raderna.
 
 > ⚠️ **`dist/` är delad — varje fullt bygge kapar testinstansen.**
 > `vite preview` (:4305) läser `dist/` **live från disk**. Alla byggen skriver
