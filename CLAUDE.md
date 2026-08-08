@@ -202,6 +202,46 @@ historiken till urvalet — annars räknas den nyss ignorerade fortfarande som
 för den som bara hade en valbar aktivitet). En nudge du aldrig såg ska inte
 förbruka ditt tak.
 
+### Aktivitetsurvalet — viktat mot `readiness`, inte uniform slump
+
+Frekvensklassen (A–D) är bara ett **tak** (max X ggr/period) — den garanterar
+ingen spridning. Ren uniform slump bland allt som är under sitt tak lät
+sällan-aktiviteter (t.ex. klass D, valbara i princip hela tiden mellan sina
+två ggr/år) tävla på fullt jämna villkor mot allt annat, hela tiden de var
+valbara — så de dök upp mycket oftare än sin tänkta takt (rapporterat: "det
+kommer många ovanliga aktiviteter").
+
+`readiness()` (`selectNudge`/`selection.ts` klient, `selectEligible`/`nudge.ts`
+server) viktar i stället slumpen efter hur länge sedan aktiviteten skickades,
+relativt klassens måltid (`windowDays/count`):
+
+- **Klass A** (obegränsad): konstant vikt 1, ingen ramp.
+- **Ingen historik:** `NEW_ACTIVITY_READINESS = 0,5` — INTE toppen av rampen
+  (1) och inte oändligt. Ramp går 0→1 över klassens måltid, så en slumpmässig
+  medlem av klassen ligger i snitt på 0,5; en ny aktivitet ska inte tävla som
+  om den vore maximalt försenad från dag ett (det gav nya sällan-aktiviteter
+  ett orättvist försprång framför gamla högfrekventa).
+- **Annars:** `min(MAX_READINESS, dagar sedan senast / måltid)` — vikt 1
+  exakt på måltiden, växer däröver (självkorrigerande om förbisprungen), men
+  `MAX_READINESS = 3` hindrar en kraftigt försenad aktivitet från att
+  monopolisera flera dragningar i rad.
+
+⚠️ **`READINESS_ROLLOUT_AT` — utan den hade utrullningen själv gett en chock.**
+`readiness()` läser hela den riktiga historiken. Utan en brytpunkt hade en
+befintlig aktivitet som råkade vara kraftigt försenad *exakt den dag koden går
+live* hoppat direkt till maxvikt (eller tvärtom hamnat nära 0 om den nyss
+skickats) — i stället för att starta jämnt (Adams beslut: befintliga
+aktiviteter ska få samma neutrala 0,5 som en helt ny, inte dömas efter historik
+från FÖRE funktionen fanns). Bara sändningar efter `READINESS_ROLLOUT_AT`
+räknas därför som "senast skickad"; allt äldre ignoreras av `mostRecentSend`
+(cap-logiken/`isEligible` rör detta inte, bara vikten). Måste vara identisk i
+båda motorerna.
+
+Reglerna delas som data i **`src/lib/nudge/selection.cases.ts`** (samma mönster
+som livscykeln/schemaläggningen ovan — inga imports, körs från både
+`selection.test.ts` och `server/src/nudge.test.ts`). Ändrar du formeln eller
+konstanterna i den ena motorn: gör det i den andra också.
+
 ## Konventioner
 
 - Aldrig hårdkoda dev-portar — begär via Helm (`helmctl port claim <service>`).

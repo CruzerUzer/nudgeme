@@ -4,9 +4,12 @@ import {
   isEligible,
   eligiblePool,
   selectNudge,
+  readiness,
+  READINESS_ROLLOUT_AT,
 } from "./selection";
 import { DEFAULT_FREQUENCY } from "@/lib/types";
 import type { Activity, NudgeRecord } from "@/lib/types";
+import { READINESS_CASES } from "./selection.cases";
 
 function activity(id: string, freq: Activity["frequency"]): Activity {
   return {
@@ -99,5 +102,64 @@ describe("selectNudge", () => {
       "a",
     );
     expect(chosen?.id).not.toBe("a");
+  });
+
+  it("viktar mot readiness i stället för uniform slump", () => {
+    // "a" (klass A, konstant vikt 1) och "b" (klass D, nyss skickad men
+    // fortfarande under sitt tak (1 av 2 tillåtna) → vikt 0) ger total vikt 1
+    // → rnd ska alltid ge "a", oavsett rnd-värde. Med den gamla uniforma
+    // slumpen (pool[floor(rnd*pool.length)]) hade rnd nära 1 gett "b".
+    // "nu" måste ligga efter READINESS_ROLLOUT_AT, annars ignoreras "b"s
+    // sändning av brytpunkten och den hamnar på 0,5 i stället för 0.
+    const now = new Date(READINESS_ROLLOUT_AT + 86_400_000);
+    const pool = [activity("a", "A"), activity("b", "D")];
+    const history = [nudge("b", now.toISOString(), "done")];
+    for (const rnd of [0, 0.4, 0.999]) {
+      expect(
+        selectNudge(pool, DEFAULT_FREQUENCY, history, now, () => rnd)?.id,
+      ).toBe("a");
+    }
+  });
+});
+
+// Serverns halva av den delade urvalstabellen (server/src/nudge.ts) —
+// ändra aldrig den ena motorns readiness utan den andra.
+describe("readiness (delad tabell)", () => {
+  // Måste ligga tillräckligt långt efter READINESS_ROLLOUT_AT för att rymma
+  // det största daysSinceLastSent-fallet i tabellen (klipp-testet), annars
+  // filtreras den konstruerade historiken bort av brytpunkten.
+  const now = new Date(READINESS_ROLLOUT_AT + 700 * 86_400_000);
+  for (const c of READINESS_CASES) {
+    it(c.name, () => {
+      const a = activity("x", c.frequency);
+      const history =
+        c.daysSinceLastSent === null
+          ? []
+          : [
+              nudge(
+                "x",
+                new Date(
+                  now.getTime() - c.daysSinceLastSent * 86_400_000,
+                ).toISOString(),
+                "done",
+              ),
+            ];
+      expect(readiness(a, DEFAULT_FREQUENCY, history, now)).toBeCloseTo(
+        c.expected,
+        10,
+      );
+    });
+  }
+
+  it("en sändning FÖRE brytpunkten ignoreras – befintlig aktivitet behandlas som ny (0,5)", () => {
+    // Utan brytpunkten skulle en befintlig, kraftigt försenad aktivitet hoppa
+    // till maxvikt exakt den dag den här koden går live. En sändning strax
+    // FÖRE READINESS_ROLLOUT_AT ska alltså inte räknas som "senast skickad".
+    const d = activity("d", "D");
+    const before = [
+      nudge("d", new Date(READINESS_ROLLOUT_AT - 86_400_000).toISOString(), "done"),
+    ];
+    const soonAfterRollout = new Date(READINESS_ROLLOUT_AT + 86_400_000);
+    expect(readiness(d, DEFAULT_FREQUENCY, before, soonAfterRollout)).toBe(0.5);
   });
 });
