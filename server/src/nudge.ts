@@ -80,12 +80,20 @@ export const AUTO_IGNORED_STATUSES: ReadonlySet<string> = new Set([
   "snoozed",
 ]);
 
+/**
+ * Brytpunkt för readiness-vikten: bara sändningar EFTER detta datum räknas
+ * som "senast skickad". Se src/lib/nudge/selection.ts (READINESS_ROLLOUT_AT)
+ * för resonemanget — måste vara identisk mellan de två motorerna.
+ */
+export const READINESS_ROLLOUT_AT = new Date("2026-08-08T00:00:00Z").getTime();
+
 function mostRecentSend(history: NudgeRow[], activityId: string): Date | null {
   let latest: Date | null = null;
   for (const h of history) {
     if (h.activity_id !== activityId) continue;
     if (!COUNTS_TOWARD_CAP.has(h.status)) continue;
     const t = new Date(h.sent_at);
+    if (t.getTime() < READINESS_ROLLOUT_AT) continue;
     if (!latest || t > latest) latest = t;
   }
   return latest;

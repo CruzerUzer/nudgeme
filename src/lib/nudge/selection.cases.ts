@@ -90,7 +90,10 @@ export const READINESS_CASES: ReadinessCase[] = [
   {
     name: "kraftigt förbisprungen D-aktivitet taks vid MAX_READINESS (3) i stället för att växa obegränsat",
     frequency: "D",
-    daysSinceLastSent: 3650, // måltid 182,5 dagar → ratio 20 utan tak
+    // måltid 182,5 dagar → ratio ~3,29 utan tak. Hålls lågt (i stället för
+    // t.ex. flera år) så testfilernas "now" för det här blocket inte behöver
+    // ligga orimligt långt efter READINESS_ROLLOUT_AT (se selection.ts).
+    daysSinceLastSent: 600,
     expected: 3,
   },
 ];

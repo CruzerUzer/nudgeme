@@ -3,6 +3,7 @@ import {
   selectEligible,
   readiness,
   DEFAULT_FREQUENCY,
+  READINESS_ROLLOUT_AT,
   type Activity,
   type NudgeRow,
 } from "./nudge.js";
@@ -43,11 +44,14 @@ describe("selectEligible exclude", () => {
     // fortfarande under sitt tak (1 av 2 tillåtna) → vikt 0) ger total vikt 1
     // → rnd ska alltid ge "a", oavsett rnd-värde. Med den gamla uniforma
     // slumpen (pool[floor(rnd*pool.length)]) hade rnd nära 1 gett "b".
+    // "nu" måste ligga efter READINESS_ROLLOUT_AT, annars ignoreras "b"s
+    // sändning av brytpunkten och den hamnar på 0,5 i stället för 0.
+    const rolloutNow = new Date(READINESS_ROLLOUT_AT + 86_400_000);
     const activities = [act("a", "A"), act("b", "D")];
-    const history = [row("b", now.toISOString(), "done")];
+    const history = [row("b", rolloutNow.toISOString(), "done")];
     for (const rnd of [0, 0.4, 0.999]) {
       expect(
-        selectEligible(activities, history, DEFAULT_FREQUENCY, now, () => rnd)?.id,
+        selectEligible(activities, history, DEFAULT_FREQUENCY, rolloutNow, () => rnd)?.id,
       ).toBe("a");
     }
   });
@@ -60,6 +64,10 @@ const { READINESS_CASES } = await import(
 );
 
 describe("readiness (delad tabell)", () => {
+  // Måste ligga tillräckligt långt efter READINESS_ROLLOUT_AT för att rymma
+  // det största daysSinceLastSent-fallet i tabellen (klipp-testet), annars
+  // filtreras den konstruerade historiken bort av brytpunkten.
+  const rolloutNow = new Date(READINESS_ROLLOUT_AT + 700 * 86_400_000);
   for (const c of READINESS_CASES) {
     it(c.name, () => {
       const a = act("x", c.frequency);
@@ -69,15 +77,27 @@ describe("readiness (delad tabell)", () => {
           : [
               row(
                 "x",
-                new Date(now.getTime() - c.daysSinceLastSent * 86_400_000).toISOString(),
+                new Date(rolloutNow.getTime() - c.daysSinceLastSent * 86_400_000).toISOString(),
               ),
             ];
-      expect(readiness(a, history, DEFAULT_FREQUENCY, now)).toBeCloseTo(
+      expect(readiness(a, history, DEFAULT_FREQUENCY, rolloutNow)).toBeCloseTo(
         c.expected,
         10,
       );
     });
   }
+
+  it("en sändning FÖRE brytpunkten ignoreras – befintlig aktivitet behandlas som ny (0,5)", () => {
+    // Utan brytpunkten skulle en befintlig, kraftigt försenad aktivitet hoppa
+    // till maxvikt exakt den dag den här koden går live. En sändning strax
+    // FÖRE READINESS_ROLLOUT_AT ska alltså inte räknas som "senast skickad".
+    const d = act("d", "D");
+    const before = [
+      row("d", new Date(READINESS_ROLLOUT_AT - 86_400_000).toISOString()),
+    ];
+    const soonAfterRollout = new Date(READINESS_ROLLOUT_AT + 86_400_000);
+    expect(readiness(d, before, DEFAULT_FREQUENCY, soonAfterRollout)).toBe(0.5);
+  });
 });
 
 // Serverns halva av den delade schematabellen (src/lib/nudge/schedule.cases.ts).

@@ -226,6 +226,17 @@ relativt klassens måltid (`windowDays/count`):
   `MAX_READINESS = 3` hindrar en kraftigt försenad aktivitet från att
   monopolisera flera dragningar i rad.
 
+⚠️ **`READINESS_ROLLOUT_AT` — utan den hade utrullningen själv gett en chock.**
+`readiness()` läser hela den riktiga historiken. Utan en brytpunkt hade en
+befintlig aktivitet som råkade vara kraftigt försenad *exakt den dag koden går
+live* hoppat direkt till maxvikt (eller tvärtom hamnat nära 0 om den nyss
+skickats) — i stället för att starta jämnt (Adams beslut: befintliga
+aktiviteter ska få samma neutrala 0,5 som en helt ny, inte dömas efter historik
+från FÖRE funktionen fanns). Bara sändningar efter `READINESS_ROLLOUT_AT`
+räknas därför som "senast skickad"; allt äldre ignoreras av `mostRecentSend`
+(cap-logiken/`isEligible` rör detta inte, bara vikten). Måste vara identisk i
+båda motorerna.
+
 Reglerna delas som data i **`src/lib/nudge/selection.cases.ts`** (samma mönster
 som livscykeln/schemaläggningen ovan — inga imports, körs från både
 `selection.test.ts` och `server/src/nudge.test.ts`). Ändrar du formeln eller

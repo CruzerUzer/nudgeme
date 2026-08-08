@@ -82,6 +82,17 @@ function targetIntervalDays(cap: FrequencyCap): number | null {
   return Number.isFinite(cap.count) ? cap.windowDays / cap.count : null;
 }
 
+/**
+ * Brytpunkt för readiness-vikten: bara sändningar EFTER detta datum räknas
+ * som "senast skickad". Utan den skulle en befintlig aktivitet som råkade
+ * vara kraftigt försenad exakt den dag den här koden går live hoppa direkt
+ * till maxvikt (eller tvärtom hamna nära 0 om den nyss skickats) — i stället
+ * för att alla befintliga aktiviteter (precis som nya användare, som redan
+ * saknar historik) startar om på samma neutrala 0,5 som en helt ny aktivitet.
+ * Måste vara identisk i server/src/nudge.ts.
+ */
+export const READINESS_ROLLOUT_AT = new Date("2026-08-08T00:00:00Z").getTime();
+
 function mostRecentSend(
   history: readonly NudgeRecord[],
   activityId: string,
@@ -91,6 +102,7 @@ function mostRecentSend(
     if (rec.activityId !== activityId) continue;
     if (!COUNTS_TOWARD_CAP.has(rec.status)) continue;
     const t = new Date(rec.sentAt);
+    if (t.getTime() < READINESS_ROLLOUT_AT) continue;
     if (!latest || t > latest) latest = t;
   }
   return latest;
