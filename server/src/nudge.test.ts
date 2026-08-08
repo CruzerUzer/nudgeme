@@ -1,13 +1,27 @@
 import { describe, it, expect } from "vitest";
-import { selectEligible, DEFAULT_FREQUENCY, type Activity } from "./nudge.js";
+import {
+  selectEligible,
+  readiness,
+  DEFAULT_FREQUENCY,
+  type Activity,
+  type NudgeRow,
+} from "./nudge.js";
 
 function act(id: string, frequency: Activity["frequency"] = "A"): Activity {
   return { id, title: id, frequency, active: true };
 }
 
-describe("selectEligible exclude", () => {
-  const now = new Date("2026-07-27T12:00:00.000Z");
+function row(
+  activityId: string,
+  sentAt: string,
+  status = "done",
+): NudgeRow {
+  return { id: activityId + sentAt, activity_id: activityId, sent_at: sentAt, status };
+}
 
+const now = new Date("2026-07-27T12:00:00.000Z");
+
+describe("selectEligible exclude", () => {
   it("undviker den exkluderade aktiviteten när det finns fler val", () => {
     const activities = [act("a"), act("b"), act("c")];
     // rnd=0 → första i poolen. Med "a" exkluderad ska poolen bli [b, c].
@@ -23,6 +37,47 @@ describe("selectEligible exclude", () => {
   it("returnerar null när inget är valbart", () => {
     expect(selectEligible([], [], DEFAULT_FREQUENCY, now, () => 0, "a")).toBeNull();
   });
+
+  it("viktar mot readiness i stället för uniform slump", () => {
+    // "a" (klass A, konstant vikt 1) och "b" (klass D, nyss skickad men
+    // fortfarande under sitt tak (1 av 2 tillåtna) → vikt 0) ger total vikt 1
+    // → rnd ska alltid ge "a", oavsett rnd-värde. Med den gamla uniforma
+    // slumpen (pool[floor(rnd*pool.length)]) hade rnd nära 1 gett "b".
+    const activities = [act("a", "A"), act("b", "D")];
+    const history = [row("b", now.toISOString(), "done")];
+    for (const rnd of [0, 0.4, 0.999]) {
+      expect(
+        selectEligible(activities, history, DEFAULT_FREQUENCY, now, () => rnd)?.id,
+      ).toBe("a");
+    }
+  });
+});
+
+// Klientens halva av den delade urvalstabellen (src/lib/nudge/selection.ts) —
+// ändra aldrig den ena motorns readiness utan den andra.
+const { READINESS_CASES } = await import(
+  "../../src/lib/nudge/selection.cases.js"
+);
+
+describe("readiness (delad tabell)", () => {
+  for (const c of READINESS_CASES) {
+    it(c.name, () => {
+      const a = act("x", c.frequency);
+      const history: NudgeRow[] =
+        c.daysSinceLastSent === null
+          ? []
+          : [
+              row(
+                "x",
+                new Date(now.getTime() - c.daysSinceLastSent * 86_400_000).toISOString(),
+              ),
+            ];
+      expect(readiness(a, history, DEFAULT_FREQUENCY, now)).toBeCloseTo(
+        c.expected,
+        10,
+      );
+    });
+  }
 });
 
 // Serverns halva av den delade schematabellen (src/lib/nudge/schedule.cases.ts).

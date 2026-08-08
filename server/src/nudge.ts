@@ -54,6 +54,10 @@ export function defaultWeekSchedule(): DaySchedule[] {
 const COUNTS_TOWARD_CAP = new Set(["sent", "acked", "committed", "done", "snoozed"]);
 const DAY_MS = 86_400_000;
 
+// Se readiness() nedan / src/lib/nudge/selection.ts för resonemanget.
+export const NEW_ACTIVITY_READINESS = 0.5;
+export const MAX_READINESS = 3;
+
 // Två skilda frågor om status — håll dem isär. Att blanda ihop dem var orsaken
 // till buggen där en orörd nudge låg kvar i dagar (se CLAUDE.md → Nudge-livscykeln).
 /** Visas som "aktuell nudge" i appen. En orörd `sent` hör hit. */
@@ -75,6 +79,53 @@ export const AUTO_IGNORED_STATUSES: ReadonlySet<string> = new Set([
   "sent",
   "snoozed",
 ]);
+
+function mostRecentSend(history: NudgeRow[], activityId: string): Date | null {
+  let latest: Date | null = null;
+  for (const h of history) {
+    if (h.activity_id !== activityId) continue;
+    if (!COUNTS_TOWARD_CAP.has(h.status)) continue;
+    const t = new Date(h.sent_at);
+    if (!latest || t > latest) latest = t;
+  }
+  return latest;
+}
+
+/**
+ * Hur "redo" en aktivitet är att slumpas, relativt sin egen klasstakt.
+ * Frekvensklassen är bara ett TAK (max X ggr/period), ingen garanterad
+ * spridning. Uniform slump bland allt under sitt tak lät sällan-aktiviteter
+ * (t.ex. klass D, evigt valbara mellan sina två ggr/år) tävla på fullt jämna
+ * villkor mot allt annat hela tiden de var valbara, så de dök upp mycket
+ * oftare än sin tänkta takt. Se readiness() i src/lib/nudge/selection.ts
+ * (klientens motsvarighet) för samma resonemang och delade testfall i
+ * src/lib/nudge/selection.cases.ts.
+ */
+export function readiness(
+  activity: Activity,
+  history: NudgeRow[],
+  settings: FrequencySettings,
+  now: Date,
+): number {
+  const cap = settings[activity.frequency];
+  const interval = cap?.count == null ? null : cap.windowDays / cap.count;
+  if (interval === null) return 1; // klass A: konstant baslinje, ingen ramp
+  const last = mostRecentSend(history, activity.id);
+  if (!last) return NEW_ACTIVITY_READINESS;
+  const daysSince = (now.getTime() - last.getTime()) / DAY_MS;
+  return Math.min(MAX_READINESS, Math.max(0, daysSince / interval));
+}
+
+function weightedPick<T>(pool: T[], weights: number[], rnd: () => number): T {
+  const total = weights.reduce((a, b) => a + b, 0);
+  if (total <= 0) return pool[Math.floor(rnd() * pool.length)];
+  let r = rnd() * total;
+  for (let i = 0; i < pool.length; i++) {
+    r -= weights[i];
+    if (r <= 0) return pool[i];
+  }
+  return pool[pool.length - 1]; // flyttalssäkerhet
+}
 
 export function selectEligible(
   activities: Activity[],
@@ -104,7 +155,8 @@ export function selectEligible(
     exclude && eligible.length > 1
       ? eligible.filter((a) => a.id !== exclude)
       : eligible;
-  return pool[Math.floor(rnd() * pool.length)];
+  const weights = pool.map((a) => readiness(a, history, settings, now));
+  return weightedPick(pool, weights, rnd);
 }
 
 export const DEFAULT_TZ = "Europe/Stockholm";

@@ -4,9 +4,11 @@ import {
   isEligible,
   eligiblePool,
   selectNudge,
+  readiness,
 } from "./selection";
 import { DEFAULT_FREQUENCY } from "@/lib/types";
 import type { Activity, NudgeRecord } from "@/lib/types";
+import { READINESS_CASES } from "./selection.cases";
 
 function activity(id: string, freq: Activity["frequency"]): Activity {
   return {
@@ -100,4 +102,44 @@ describe("selectNudge", () => {
     );
     expect(chosen?.id).not.toBe("a");
   });
+
+  it("viktar mot readiness i stället för uniform slump", () => {
+    // "a" (klass A, konstant vikt 1) och "b" (klass D, nyss skickad men
+    // fortfarande under sitt tak (1 av 2 tillåtna) → vikt 0) ger total vikt 1
+    // → rnd ska alltid ge "a", oavsett rnd-värde. Med den gamla uniforma
+    // slumpen (pool[floor(rnd*pool.length)]) hade rnd nära 1 gett "b".
+    const pool = [activity("a", "A"), activity("b", "D")];
+    const history = [nudge("b", NOW.toISOString(), "done")];
+    for (const rnd of [0, 0.4, 0.999]) {
+      expect(
+        selectNudge(pool, DEFAULT_FREQUENCY, history, NOW, () => rnd)?.id,
+      ).toBe("a");
+    }
+  });
+});
+
+// Serverns halva av den delade urvalstabellen (server/src/nudge.ts) —
+// ändra aldrig den ena motorns readiness utan den andra.
+describe("readiness (delad tabell)", () => {
+  for (const c of READINESS_CASES) {
+    it(c.name, () => {
+      const a = activity("x", c.frequency);
+      const history =
+        c.daysSinceLastSent === null
+          ? []
+          : [
+              nudge(
+                "x",
+                new Date(
+                  NOW.getTime() - c.daysSinceLastSent * 86_400_000,
+                ).toISOString(),
+                "done",
+              ),
+            ];
+      expect(readiness(a, DEFAULT_FREQUENCY, history, NOW)).toBeCloseTo(
+        c.expected,
+        10,
+      );
+    });
+  }
 });
